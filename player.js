@@ -33,8 +33,6 @@ async function loadPlaylistDirect(url) {
     showLoader('Descargando contenido de la lista...');
 
     let playlistText = null;
-
-    // Usamos fetch directo ya que el archivo está en tu propio GitHub Pages y permite acceso
     const proxies = [
         url,
         `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
@@ -46,28 +44,24 @@ async function loadPlaylistDirect(url) {
             const response = await fetch(proxyUrl);
             if (response.ok) {
                 playlistText = await response.text();
-                if (playlistText && playlistText.length > 20) {
-                    break;
-                }
+                if (playlistText && playlistText.length > 20) break;
             }
-        } catch (e) {
-            console.warn("Probando siguiente método de descarga...", e);
-        }
+        } catch (e) {}
     }
 
     if (playlistText && playlistText.length > 20) {
-        parseExM3U2026(playlistText);
+        parseExM3UExact(playlistText);
     } else {
         hideLoader();
-        alert("No se pudo leer el contenido de la lista M3U. Comprueba el enlace.");
+        alert("No se pudo leer el contenido de la lista M3U.");
         return;
     }
 
     hideLoader();
 }
 
-// MOTOR DE ANÁLISIS EXM3U BLINDADO (DETECTA CUALQUIER GRUPO Y CATEGORÍA)
-function parseExM3U2026(content) {
+// NUEVO MOTOR DE CLASIFICACIÓN EXACTA SEGÚN TU LISTA
+function parseExM3UExact(content) {
     const lines = content.replace(/\r\n/g, '\n').split('\n');
     let currentName = '';
     let currentLogo = '';
@@ -77,24 +71,20 @@ function parseExM3U2026(content) {
         let line = lines[i].trim();
 
         if (line.startsWith('#EXTINF:')) {
-            // Extraer nombre del canal (lo que está después de la última coma)
             let commaIndex = line.lastIndexOf(',');
             if (commaIndex !== -1) {
                 currentName = line.substring(commaIndex + 1).trim();
             }
 
-            // Extraer Logo (tvg-logo o logo)
             let logoMatch = line.match(/tvg-logo="([^"]*)"/i) || line.match(/logo="([^"]*)"/i);
             currentLogo = logoMatch ? logoMatch[1] : '';
 
-            // Extraer Grupo o Categoría (group-title)
             let groupMatch = line.match(/group-title="([^"]*)"/i) || line.match(/group-title='([^']*)'/i);
             currentGroup = groupMatch ? groupMatch[1].trim() : 'General';
 
         } else if (line && !line.startsWith('#')) {
-            // Es la URL del multimedia
             let mediaUrl = line;
-            if (currentName === '') currentName = 'Canal / Contenido sin nombre';
+            if (currentName === '') currentName = 'Contenido sin nombre';
 
             let item = {
                 name: currentName,
@@ -104,18 +94,21 @@ function parseExM3U2026(content) {
             };
 
             let gLower = currentGroup.toLowerCase();
-            let nLower = currentName.toLowerCase();
 
-            // Clasificación inteligente según las categorías de tu lista
-            if (gLower.includes('pelicula') || gLower.includes('vod') || gLower.includes('movie') || gLower.includes('cine') || nLower.includes('vod')) {
+            // CLASIFICACIÓN ESTRICTA Y CORREGIDA
+            // Si el grupo contiene palabras clave de películas/VOD -> Se va EXCLUSIVAMENTE a MOVIES
+            if (gLower.includes('pelicula') || gLower.includes('vod') || gLower.includes('movie') || gLower.includes('cine') || gLower.includes('estrenos')) {
                 allMedia.movies.push(item);
-            } else if (gLower.includes('serie') || gLower.includes('temporada') || gLower.includes('capitulo') || gLower.includes('season')) {
+            } 
+            // Si el grupo contiene palabras clave de series -> Se va EXCLUSIVAMENTE a SERIES
+            else if (gLower.includes('serie') || gLower.includes('temporada') || gLower.includes('capitulo') || gLower.includes('season')) {
                 allMedia.series.push(item);
-            } else {
+            } 
+            // Todo lo demás (canales de TV, 24/7, eventos) -> Se va a LIVE TV
+            else {
                 allMedia.live.push(item);
             }
 
-            // Reiniciar para el siguiente registro
             currentName = '';
             currentLogo = '';
             currentGroup = 'General';
