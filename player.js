@@ -4,7 +4,7 @@ let currentGroup = '';
 let hls = null;
 
 async function initAppSession(isAuto = false) {
-    if (!isAuto) showLoader('Sincronizando listas ExM3U desde Google Sheets...');
+    if (!isAuto) showLoader('Sincronizando lista ExM3U V1.1...');
     
     document.getElementById('viewLogin').classList.add('hidden');
     document.getElementById('appHeader').classList.remove('hidden');
@@ -13,77 +13,55 @@ async function initAppSession(isAuto = false) {
     document.getElementById('headerUserInfo').innerText = `Usuario: ${currentUserData.usuario} (${currentUserData.nombre || ''})`;
     document.getElementById('headerExp').innerText = `Vence: ${currentUserData.vencimiento}`;
 
-    await loadAllPlaylistsFromUser(currentUserData.urls);
-    hideLoader();
+    if (currentUserData.urls && currentUserData.urls.length > 0) {
+        await loadPlaylistDirect(currentUserData.urls[0]);
+    } else {
+        hideLoader();
+        alert("No hay URLs de listas asignadas en Google Sheets.");
+    }
 }
 
-// VALIDACIÓN RÁPIDA DE LÍNEA Y DESCARGA DE LISTAS
-async function loadAllPlaylistsFromUser(urls) {
+// DESCARGA DIRECTA Y OPTIMIZADA DE LA LISTA EXM3U
+async function loadPlaylistDirect(url) {
     allMedia = { live: [], movies: [], series: [] };
+    showLoader('Descargando contenido de la lista...');
 
-    if (!urls || urls.length === 0) {
-        alert("No se encontraron URLs de listas asignadas en Google Sheets.");
+    let playlistText = null;
+
+    // Lista de pasarelas de respaldo ultra rápidas para evitar bloqueo CORS
+    const proxies = [
+        `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+        `https://corsproxy.io/?${encodeURIComponent(url)}`,
+        url // Intento directo por si el servidor soporta CORS
+    ];
+
+    for (let proxyUrl of proxies) {
+        try {
+            const response = await fetch(proxyUrl);
+            if (response.ok) {
+                playlistText = await response.text();
+                if (playlistText && playlistText.length > 100) {
+                    break; // Si descargó correctamente, salimos del ciclo
+                }
+            }
+        } catch (e) {
+            console.warn("Intentando siguiente proxy...", e);
+        }
+    }
+
+    if (playlistText && playlistText.length > 100) {
+        parseExM3UFast(playlistText);
+    } else {
+        hideLoader();
+        alert("No se pudo descargar la lista. Verifica que el enlace M3U esté activo en internet.");
         return;
     }
 
-    for (let i = 0; i < urls.length; i++) {
-        let url = urls[i];
-        showLoader(`Verificando estado de la lista ${i + 1}...`);
-
-        // VALIDACIÓN RÁPIDA DE CONECTIVIDAD EN LÍNEA
-        let isOnline = await checkListOnline(url);
-        if (!isOnline) {
-            console.warn(`La lista ${url} no responde o está caída.`);
-            continue; // Salta a la siguiente si la actual no está en línea
-        }
-
-        showLoader(`Descargando contenido de la lista ${i + 1}...`);
-        let playlistText = null;
-
-        // Intento de descarga mediante pasarelas proxy
-        try {
-            const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`);
-            if (res.ok) playlistText = await res.text();
-        } catch (e) {}
-
-        if (!playlistText || playlistText.length < 50) {
-            try {
-                const res2 = await fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`);
-                if (res2.ok) playlistText = await res2.text();
-            } catch (e2) {}
-        }
-
-        if (playlistText && playlistText.length > 50) {
-            parseExM3U(playlistText);
-        }
-    }
+    hideLoader();
 }
 
-// FUNCIÓN PARA VALIDAR RÁPIDAMENTE SI LA URL ESTÁ EN LÍNEA
-async function checkListOnline(url) {
-    try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 4000); // 4 segundos máximo de espera
-
-        const response = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`, {
-            method: 'HEAD',
-            signal: controller.signal
-        });
-        clearTimeout(timeoutId);
-        return true;
-    } catch (e) {
-        // Si HEAD falla, intentamos una petición rápida con GET de respaldo
-        try {
-            const resGet = await fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`, { method: 'GET' });
-            return resGet.ok;
-        } catch (err) {
-            return false;
-        }
-    }
-}
-
-// PARSER EXM3U PARA CATEGORÍAS Y GRUPOS
-function parseExM3U(content) {
+// PARSER EXM3U DE ALTA VELOCIDAD (CLASIFICA INSTANTÁNEAMENTE)
+function parseExM3UFast(content) {
     const lines = content.replace(/\r\n/g, '\n').split('\n');
     let name = '', logo = '', group = 'General';
 
@@ -143,7 +121,7 @@ function renderCategories() {
     document.getElementById('groupCount').innerText = groups.length;
 
     if (groups.length === 0) {
-        container.innerHTML = `<div class="text-center py-8 text-slate-500 text-xs">No hay categorías</div>`;
+        container.innerHTML = `<div class="text-center py-8 text-slate-500 text-xs">No hay categorías en esta sección</div>`;
         document.getElementById('mediaList').innerHTML = `<div class="text-center py-16 text-slate-500 text-xs">No hay elementos</div>`;
         document.getElementById('itemCount').innerText = '0';
         return;
