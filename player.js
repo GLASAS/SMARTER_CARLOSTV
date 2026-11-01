@@ -1,0 +1,209 @@
+let allMedia = { live: [], movies: [], series: [] };
+let currentSection = 'live';
+let currentGroup = '';
+let hls = null;
+
+async function initAppSession(isAuto = false) {
+    if (!isAuto) showLoader('Sincronizando listas ExM3U desde Google Sheets...');
+    
+    document.getElementById('viewLogin').classList.add('hidden');
+    document.getElementById('appHeader').classList.remove('hidden');
+    document.getElementById('appMain').classList.remove('hidden');
+    
+    document.getElementById('headerUserInfo').innerText = `Usuario: ${currentUserData.usuario} (${currentUserData.nombre || ''})`;
+    document.getElementById('headerExp').innerText = `Vence: ${currentUserData.vencimiento}`;
+
+    await loadAllPlaylistsFromUser(currentUserData.urls);
+    hideLoader();
+}
+
+async function loadAllPlaylistsFromUser(urls) {
+    allMedia = { live: [], movies: [], series: [] };
+
+    if (!urls || urls.length === 0) return;
+
+    for (let i = 0; i < urls.length; i++) {
+        let url = urls[i];
+        showLoader(`Descargando lista ExM3U ${i + 1} de ${urls.length}...`);
+        let playlistText = null;
+
+        try {
+            const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`);
+            if (res.ok) playlistText = await res.text();
+        } catch (e) {}
+
+        if (!playlistText || playlistText.length < 50) {
+            try {
+                const res2 = await fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`);
+                if (res2.ok) playlistText = await res2.text();
+            } catch (e2) {}
+        }
+
+        if (playlistText && playlistText.length > 50) {
+            parseExM3U(playlistText);
+        }
+    }
+}
+
+function parseExM3U(content) {
+    const lines = content.replace(/\r\n/g, '\n').split('\n');
+    let name = '', logo = '', group = 'General';
+
+    for (let i = 0; i < lines.length; i++) {
+        let line = lines[i].trim();
+        if (line.startsWith('#EXTINF:')) {
+            let logoMatch = line.match(/tvg-logo=["']([^"']*)["']/i) || line.match(/logo=["']([^"']*)["']/i);
+            let groupMatch = line.match(/group-title=["']([^"']*)["']/i) || line.match(/group=["']([^"']*)["']/i);
+            
+            let parts = line.split(',');
+            name = parts.length > 1 ? parts.slice(1).join(',').trim() : 'Canal sin nombre';
+            logo = logoMatch ? logoMatch[1] : '';
+            group = groupMatch ? groupMatch[1].trim() : 'General';
+        } else if (line && !line.startsWith('#')) {
+            let item = { name, logo, group, url: line };
+            let gLower = group.toLowerCase();
+            let nLower = name.toLowerCase();
+
+            if (gLower.includes('pelicula') || gLower.includes('vod') || gLower.includes('movie') || gLower.includes('cine') || nLower.includes('vod')) {
+                allMedia.movies.push(item);
+            } else if (gLower.includes('serie') || gLower.includes('temporada') || gLower.includes('capitulo') || gLower.includes('season')) {
+                allMedia.series.push(item);
+            } else {
+                allMedia.live.push(item);
+            }
+            name = ''; logo = ''; group = 'General';
+        }
+    }
+}
+
+function openSection(section) {
+    currentSection = section;
+    document.getElementById('viewDashboard').classList.add('hidden');
+    document.getElementById('viewContent').classList.remove('hidden');
+    document.getElementById('btnHome').classList.remove('hidden');
+
+    const titles = { live: 'Canales en Vivo', movies: 'Películas VOD', series: 'Series TV' };
+    document.getElementById('sidebarTitle').innerText = titles[section];
+
+    renderCategories();
+}
+
+function returnToDashboard() {
+    document.getElementById('viewContent').classList.add('hidden');
+    document.getElementById('viewDashboard').classList.remove('hidden');
+    document.getElementById('btnHome').classList.add('hidden');
+
+    const video = document.getElementById('videoPlayer');
+    if (video) { video.pause(); video.src = ''; }
+}
+
+function renderCategories() {
+    const list = allMedia[currentSection];
+    const groups = [...new Set(list.map(item => item.group))].sort();
+    const container = document.getElementById('categoryList');
+    container.innerHTML = '';
+    document.getElementById('groupCount').innerText = groups.length;
+
+    if (groups.length === 0) {
+        container.innerHTML = `<div class="text-center py-8 text-slate-500 text-xs">No hay categorías</div>`;
+        document.getElementById('mediaList').innerHTML = `<div class="text-center py-16 text-slate-500 text-xs">No hay elementos</div>`;
+        document.getElementById('itemCount').innerText = '0';
+        return;
+    }
+
+    currentGroup = groups[0];
+
+    groups.forEach(group => {
+        const count = list.filter(item => item.group === group).length;
+        const el = document.createElement('div');
+        el.className = `flex items-center justify-between p-2.5 rounded-xl cursor-pointer text-xs font-semibold transition ${group === currentGroup ? 'bg-cyan-600 text-white shadow-md' : 'text-slate-300 hover:bg-slate-800'}`;
+        el.onclick = () => {
+            currentGroup = group;
+            renderCategories();
+            filterMedia();
+        };
+        el.innerHTML = `
+            <span class="truncate pr-2">${group}</span>
+            <span class="bg-slate-950/40 text-[10px] px-2 py-0.5 rounded-full">${count}</span>
+        `;
+        container.appendChild(el);
+    });
+
+    filterMedia();
+}
+
+function filterMedia() {
+    const search = document.getElementById('searchMedia').value.toLowerCase();
+    const list = allMedia[currentSection];
+
+    const filtered = list.filter(item => {
+        const matchesGroup = (item.group === currentGroup);
+        const matchesSearch = item.name.toLowerCase().includes(search);
+        return matchesGroup && matchesSearch;
+    });
+
+    renderMediaList(filtered);
+}
+
+function renderMediaList(items) {
+    const container = document.getElementById('mediaList');
+    container.innerHTML = '';
+    document.getElementById('itemCount').innerText = items.length;
+
+    if (items.length === 0) {
+        container.innerHTML = `<div class="text-center py-16 text-slate-500 text-xs">No hay elementos</div>`;
+        return;
+    }
+
+    items.forEach(item => {
+        const el = document.createElement('div');
+        el.className = 'flex items-center gap-3 p-2 bg-slate-900/60 hover:bg-slate-800 border border-slate-800/80 rounded-xl cursor-pointer transition group';
+        
+        let logoHtml = item.logo 
+            ? `<img src="${item.logo}" class="w-9 h-9 object-contain rounded-lg bg-slate-950 p-1 border border-slate-800" onerror="this.src='https://via.placeholder.com/40?text=TV'">`
+            : `<div class="w-9 h-9 bg-slate-950 rounded-lg flex items-center justify-center text-slate-500 border border-slate-800"><i class="fa-solid fa-play text-xs"></i></div>`;
+
+        el.onclick = () => playMedia(item);
+        el.innerHTML = `
+            ${logoHtml}
+            <div class="min-w-0 flex-1">
+                <p class="text-xs font-semibold truncate text-slate-200 group-hover:text-cyan-400 transition">${item.name}</p>
+                <p class="text-[10px] text-slate-400 truncate">${item.group}</p>
+            </div>
+        `;
+        container.appendChild(el);
+    });
+}
+
+function playMedia(item) {
+    const video = document.getElementById('videoPlayer');
+    document.getElementById('playingName').innerText = item.name;
+    document.getElementById('currentChannelInfo').classList.remove('hidden');
+
+    if (Hls.isSupported() && item.url.includes('.m3u8')) {
+        if (hls) hls.destroy();
+        hls = new Hls();
+        hls.loadSource(item.url);
+        hls.attachMedia(video);
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+            video.play();
+        });
+    } else {
+        video.src = item.url;
+        video.play();
+    }
+}
+
+function skipTime(seconds) {
+    const video = document.getElementById('videoPlayer');
+    if (video) video.currentTime += seconds;
+}
+
+function toggleFullscreen() {
+    const video = document.getElementById('videoPlayer');
+    if (!document.fullscreenElement) {
+        if (video.requestFullscreen) video.requestFullscreen();
+    } else {
+        if (document.exitFullscreen) document.exitFullscreen();
+    }
+}
