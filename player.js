@@ -17,16 +17,30 @@ async function initAppSession(isAuto = false) {
     hideLoader();
 }
 
+// VALIDACIÓN RÁPIDA DE LÍNEA Y DESCARGA DE LISTAS
 async function loadAllPlaylistsFromUser(urls) {
     allMedia = { live: [], movies: [], series: [] };
 
-    if (!urls || urls.length === 0) return;
+    if (!urls || urls.length === 0) {
+        alert("No se encontraron URLs de listas asignadas en Google Sheets.");
+        return;
+    }
 
     for (let i = 0; i < urls.length; i++) {
         let url = urls[i];
-        showLoader(`Descargando lista ExM3U ${i + 1} de ${urls.length}...`);
+        showLoader(`Verificando estado de la lista ${i + 1}...`);
+
+        // VALIDACIÓN RÁPIDA DE CONECTIVIDAD EN LÍNEA
+        let isOnline = await checkListOnline(url);
+        if (!isOnline) {
+            console.warn(`La lista ${url} no responde o está caída.`);
+            continue; // Salta a la siguiente si la actual no está en línea
+        }
+
+        showLoader(`Descargando contenido de la lista ${i + 1}...`);
         let playlistText = null;
 
+        // Intento de descarga mediante pasarelas proxy
         try {
             const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`);
             if (res.ok) playlistText = await res.text();
@@ -45,6 +59,30 @@ async function loadAllPlaylistsFromUser(urls) {
     }
 }
 
+// FUNCIÓN PARA VALIDAR RÁPIDAMENTE SI LA URL ESTÁ EN LÍNEA
+async function checkListOnline(url) {
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 4000); // 4 segundos máximo de espera
+
+        const response = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`, {
+            method: 'HEAD',
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        return true;
+    } catch (e) {
+        // Si HEAD falla, intentamos una petición rápida con GET de respaldo
+        try {
+            const resGet = await fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`, { method: 'GET' });
+            return resGet.ok;
+        } catch (err) {
+            return false;
+        }
+    }
+}
+
+// PARSER EXM3U PARA CATEGORÍAS Y GRUPOS
 function parseExM3U(content) {
     const lines = content.replace(/\r\n/g, '\n').split('\n');
     let name = '', logo = '', group = 'General';
