@@ -13,26 +13,33 @@ async function initAppSession(isAuto = false) {
     document.getElementById('headerUserInfo').innerText = `Usuario: ${currentUserData.usuario} (${currentUserData.nombre || ''})`;
     document.getElementById('headerExp').innerText = `Vence: ${currentUserData.vencimiento}`;
 
-    if (currentUserData.urls && currentUserData.urls.length > 0) {
-        await loadPlaylistDirect(currentUserData.urls[0]);
+    // Validar correctamente las URLs devueltas por el Google Sheet (Columna G / URL1)
+    let targetUrls = [];
+    if (Array.isArray(currentUserData.urls)) {
+        targetUrls = currentUserData.urls;
+    } else if (typeof currentUserData.urls === 'string' && currentUserData.urls.trim() !== '') {
+        targetUrls = [currentUserData.urls];
+    }
+
+    if (targetUrls.length > 0) {
+        await loadPlaylistDirect(targetUrls[0]);
     } else {
         hideLoader();
-        alert("No hay URLs de listas asignadas en Google Sheets.");
+        alert("No se encontró ninguna URL en la columna URL1 de Google Sheets.");
     }
 }
 
-// DESCARGA DIRECTA Y OPTIMIZADA DE LA LISTA EXM3U
+// DESCARGA DIRECTA DE LA LISTA M3U DESDE EL ENLACE DE GITHUB / GOOGLE SHEETS
 async function loadPlaylistDirect(url) {
     allMedia = { live: [], movies: [], series: [] };
     showLoader('Descargando contenido de la lista...');
 
     let playlistText = null;
 
-    // Lista de pasarelas de respaldo ultra rápidas para evitar bloqueo CORS
     const proxies = [
+        url, // Intento directo (como está en github.io, suele permitir acceso directo)
         `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-        `https://corsproxy.io/?${encodeURIComponent(url)}`,
-        url // Intento directo por si el servidor soporta CORS
+        `https://corsproxy.io/?${encodeURIComponent(url)}`
     ];
 
     for (let proxyUrl of proxies) {
@@ -40,27 +47,27 @@ async function loadPlaylistDirect(url) {
             const response = await fetch(proxyUrl);
             if (response.ok) {
                 playlistText = await response.text();
-                if (playlistText && playlistText.length > 100) {
-                    break; // Si descargó correctamente, salimos del ciclo
+                if (playlistText && playlistText.length > 50) {
+                    break;
                 }
             }
         } catch (e) {
-            console.warn("Intentando siguiente proxy...", e);
+            console.warn("Intentando siguiente método de descarga...", e);
         }
     }
 
-    if (playlistText && playlistText.length > 100) {
+    if (playlistText && playlistText.length > 50) {
         parseExM3UFast(playlistText);
     } else {
         hideLoader();
-        alert("No se pudo descargar la lista. Verifica que el enlace M3U esté activo en internet.");
+        alert("No se pudo leer el contenido de la lista M3U. Revisa el enlace.");
         return;
     }
 
     hideLoader();
 }
 
-// PARSER EXM3U DE ALTA VELOCIDAD (CLASIFICA INSTANTÁNEAMENTE)
+// PARSER EXM3U DE ALTA VELOCIDAD
 function parseExM3UFast(content) {
     const lines = content.replace(/\r\n/g, '\n').split('\n');
     let name = '', logo = '', group = 'General';
