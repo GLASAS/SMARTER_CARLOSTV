@@ -1,0 +1,25 @@
+@import "https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css";
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+html, body {
+    width: 100vw;
+    height: 100vh;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background-color: #05080f;
+}
+
+/* Forzar orientación horizontal (Landscape) en dispositivos móviles */
+@media screen and (orientation: portrait) {
+    #rotateWarning {
+        display: flex !important;
+    }
+}
+@media screen and (orientation: landscape) {
+    #rotateWarning {
+        display: none !important;
+    }
+}
