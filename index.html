@@ -2,8 +2,16 @@
 <html lang="es" class="dark">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>IPTV Smarters Web - Cloud Edition</title>
+    
+    <!-- FAVICON E ICONOS PARA CELULARES Y TV -->
+    <link rel="icon" type="image/jpeg" href="CarlostvLite.jpg">
+    <link rel="apple-touch-icon" href="CarlostvLite.jpg">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="IPTV Smarters">
+
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- HLS.js para reproducción universal de streams m3u8 -->
@@ -13,28 +21,47 @@
     <style>
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* FORZAR ORIENTACIÓN HORIZONTAL (LANDSCAPE) EN MÓVILES Y TV */
+        @media screen and (orientation: portrait) {
+            body::before {
+                content: "⚠️ Por favor, gira tu dispositivo en posición horizontal para disfrutar de la mejor experiencia IPTV.";
+                position: fixed;
+                inset: 0;
+                background: #05080f;
+                color: #38bdf8;
+                z-index: 99999;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                text-align: center;
+                padding: 2rem;
+                font-weight: bold;
+                font-size: 1.1rem;
+            }
+        }
     </style>
 </head>
 <body class="bg-[#070b14] text-slate-100 min-h-screen flex flex-col select-none overflow-hidden font-sans">
 
-    <!-- ================= PANTALLA DE CARGA GLOBAL TRANSPARENTE CON BLUR ================= -->
+    <!-- ================= PANTALLA DE CARGA GLOBAL ================= -->
     <div id="globalLoader" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[100] flex flex-col items-center justify-center space-y-4 transition-opacity duration-300 hidden">
         <div class="relative flex items-center justify-center">
             <div class="w-16 h-16 border-4 border-cyan-500/20 border-t-cyan-500 rounded-full animate-spin"></div>
-            <i class="fa-solid fa-tv absolute text-cyan-400 text-xl"></i>
+            <img src="CarlostvLite.jpg" class="w-8 h-8 object-cover rounded-full absolute">
         </div>
         <div class="text-center space-y-1">
             <h3 class="text-sm font-bold text-white tracking-widest uppercase">Cargando contenido IPTV...</h3>
-            <p class="text-xs text-slate-400" id="loaderText">Sincronizando con Google Sheets y listas M3U</p>
+            <p class="text-xs text-slate-400" id="loaderText">Leyendo categorías y grupos de la lista ExM3U</p>
         </div>
     </div>
 
     <!-- ================= 1. PANTALLA DE LOGIN CON GOOGLE SHEETS ================= -->
     <div id="viewLogin" class="fixed inset-0 bg-[#05080f] flex items-center justify-center z-50 p-4">
         <div class="bg-slate-900/90 border border-slate-800/80 p-8 rounded-3xl shadow-2xl w-full max-w-md backdrop-blur-xl space-y-6">
-            <div class="text-center space-y-2">
-                <div class="inline-flex bg-gradient-to-tr from-cyan-600 to-blue-600 p-3 rounded-2xl text-white shadow-lg shadow-cyan-500/20 mb-2">
-                    <i class="fa-solid fa-tv text-2xl"></i>
+            <div class="text-center space-y-3">
+                <div class="inline-flex shadow-xl shadow-cyan-500/20 rounded-2xl overflow-hidden border border-cyan-500/30">
+                    <img src="CarlostvLite.jpg" class="w-16 h-16 object-cover">
                 </div>
                 <h1 class="text-xl font-black tracking-wider uppercase text-white">IPTV <span class="text-cyan-400">Smarters Pro</span></h1>
                 <p class="text-xs text-slate-400">Introduce tus credenciales autorizadas</p>
@@ -63,8 +90,8 @@
     <!-- ================= 2. CABECERA GENERAL (APP) ================= -->
     <header class="bg-slate-900/90 backdrop-blur border-b border-slate-800 px-6 py-3 flex justify-between items-center z-30 shadow-lg hidden" id="appHeader">
         <div class="flex items-center gap-3">
-            <div class="bg-cyan-600 p-2.5 rounded-xl text-white shadow-lg shadow-cyan-500/20">
-                <i class="fa-solid fa-tv text-lg"></i>
+            <div class="shadow-lg shadow-cyan-500/20 rounded-xl overflow-hidden border border-cyan-500/30">
+                <img src="CarlostvLite.jpg" class="w-10 h-10 object-cover">
             </div>
             <div>
                 <h1 class="text-base font-extrabold tracking-wide uppercase text-white">IPTV <span class="text-cyan-400">Smarters Pro</span></h1>
@@ -85,7 +112,7 @@
     <!-- ================= 3. CONTENEDOR DE VISTAS ================= -->
     <main class="flex-1 relative flex flex-col overflow-hidden hidden" id="appMain">
         
-        <!-- DASHBOARD PRINCIPAL (ESTILO IPTV SMARTERS PRO) -->
+        <!-- DASHBOARD PRINCIPAL -->
         <div id="viewDashboard" class="flex-1 flex flex-col items-center justify-center p-8 bg-gradient-to-b from-[#0b132b] to-[#070b14] overflow-y-auto">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl w-full">
                 <!-- Live TV -->
@@ -121,7 +148,7 @@
             </div>
         </div>
 
-        <!-- VISTA DE CONTENIDO (CATEGORÍAS A LA IZQUIERDA + LISTA + REPRODUCTOR) -->
+        <!-- VISTA DE CONTENIDO (CATEGORÍAS EXM3U A LA IZQUIERDA + LISTA + REPRODUCTOR) -->
         <div id="viewContent" class="flex-1 flex overflow-hidden hidden">
             <!-- Columna Izquierda: Categorías -->
             <aside class="w-80 bg-slate-900 border-r border-slate-800 flex flex-col h-full">
@@ -145,7 +172,7 @@
                 <div id="mediaList" class="flex-1 overflow-y-auto no-scrollbar p-2 space-y-1.5"></div>
             </div>
 
-            <!-- Columna Derecha: Reproductor Multimedia con Controles Avanzados -->
+            <!-- Columna Derecha: Reproductor Multimedia -->
             <section class="flex-1 bg-black flex flex-col justify-center items-center relative">
                 <video id="videoPlayer" controls autoplay class="w-full h-full max-h-[90vh] object-contain"></video>
                 
@@ -172,9 +199,9 @@
         </div>
     </main>
 
-    <!-- ================= LÓGICA JAVASCRIPT ================= -->
+    <!-- ================= LÓGICA JAVASCRIPT EXM3U ================= -->
     <script>
-        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzeTWXxOVLAItR2AwFzXjDNUDT-enidSApWahwIe8ayVywWdGZpBdTxWdaT96_2THdn4g/exec';
+        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwR-YL0aHif3Tpzy3sfOybxItD_uoxlJl7KdDhZLm4X7Vm0ZK3PtdOBgw8Y93Nh2m6xkA/exec';
 
         let allMedia = { live: [], movies: [], series: [] };
         let currentSection = 'live';
@@ -195,283 +222,4 @@
             }
         };
 
-        function showLoader(text = 'Cargando contenido...') {
-            document.getElementById('loaderText').innerText = text;
-            document.getElementById('globalLoader').classList.remove('hidden');
-        }
-
-        function hideLoader() {
-            document.getElementById('globalLoader').classList.add('hidden');
-        }
-
-        async function handleLogin() {
-            const userIn = document.getElementById('loginUser').value.trim();
-            const passIn = document.getElementById('loginPass').value.trim();
-            const errDiv = document.getElementById('loginError');
-
-            if (!userIn || !passIn) {
-                errDiv.innerText = 'Introduce usuario y contraseña.';
-                errDiv.classList.remove('hidden');
-                return;
-            }
-
-            showLoader('Verificando credenciales en Google Sheets...');
-
-            try {
-                // Usamos modo no-cors o fetch directo
-                const response = await fetch(`${WEB_APP_URL}?action=login&user=${encodeURIComponent(userIn)}&pass=${encodeURIComponent(passIn)}`);
-                const data = await response.json();
-
-                if (data.status === 'success') {
-                    currentUserData = data;
-                    localStorage.setItem('iptv_session_user', JSON.stringify(currentUserData));
-                    await initAppSession(false);
-                } else {
-                    hideLoader();
-                    errDiv.innerText = data.message;
-                    errDiv.classList.remove('hidden');
-                }
-            } catch (e) {
-                hideLoader();
-                console.error(e);
-                errDiv.innerText = 'Error al conectar con Google Sheets. (Verifica CORS o despliegue).';
-                errDiv.classList.remove('hidden');
-            }
-        }
-
-        async function initAppSession(isAuto = false) {
-            if (!isAuto) showLoader('Sincronizando listas M3U desde Google Sheets...');
-            
-            document.getElementById('viewLogin').classList.add('hidden');
-            document.getElementById('appHeader').classList.remove('hidden');
-            document.getElementById('appMain').classList.remove('hidden');
-            
-            document.getElementById('headerUserInfo').innerText = `Usuario: ${currentUserData.usuario} (${currentUserData.nombre || ''})`;
-            document.getElementById('headerExp').innerText = `Vence: ${currentUserData.vencimiento}`;
-
-            await loadAllPlaylistsFromUser(currentUserData.urls);
-            hideLoader();
-        }
-
-        function logout() {
-            localStorage.removeItem('iptv_session_user');
-            location.reload();
-        }
-
-        async function loadAllPlaylistsFromUser(urls) {
-            allMedia = { live: [], movies: [], series: [] };
-
-            if (!urls || urls.length === 0) {
-                console.warn("No se encontraron URLs de listas asignadas en Google Sheets.");
-                hideLoader();
-                return;
-            }
-
-            for (let i = 0; i < urls.length; i++) {
-                let url = urls[i];
-                showLoader(`Descargando lista ${i + 1} de ${urls.length}...`);
-                let playlistText = null;
-
-                try {
-                    const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`);
-                    if (res.ok) playlistText = await res.text();
-                } catch (e) {
-                    console.warn('Proxy 1 falló, intentando respaldo...');
-                }
-
-                if (!playlistText || playlistText.length < 50) {
-                    try {
-                        const res2 = await fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`);
-                        if (res2.ok) playlistText = await res2.text();
-                    } catch (e2) {
-                        console.error('Proxy 2 falló:', e2);
-                    }
-                }
-
-                if (playlistText) {
-                    parseM3UFast(playlistText);
-                }
-            }
-        }
-
-        function parseM3UFast(content) {
-            const lines = content.replace(/\r\n/g, '\n').split('\n');
-            let name = '', logo = '', group = 'General';
-
-            for (let i = 0; i < lines.length; i++) {
-                let line = lines[i].trim();
-                if (line.startsWith('#EXTINF:')) {
-                    let logoMatch = line.match(/tvg-logo="([^"]*)"/);
-                    let groupMatch = line.match(/group-title="([^"]*)"/);
-                    let parts = line.split(',');
-                    name = parts[parts.length - 1].trim();
-                    logo = logoMatch ? logoMatch[1] : '';
-                    group = groupMatch ? groupMatch[1] : 'General';
-                } else if (line && !line.startsWith('#')) {
-                    let item = { name, logo, group, url: line };
-                    let gLower = group.toLowerCase();
-                    let nLower = name.toLowerCase();
-
-                    if (gLower.includes('pelicula') || gLower.includes('vod') || gLower.includes('movie') || nLower.includes('vod')) {
-                        allMedia.movies.push(item);
-                    } else if (gLower.includes('serie') || gLower.includes('temporada') || gLower.includes('capitulo')) {
-                        allMedia.series.push(item);
-                    } else {
-                        allMedia.live.push(item);
-                    }
-                }
-            }
-        }
-
-        function openSection(section) {
-            currentSection = section;
-            document.getElementById('viewDashboard').classList.add('hidden');
-            document.getElementById('viewContent').classList.remove('hidden');
-            document.getElementById('btnHome').classList.remove('hidden');
-
-            const titles = { live: 'Canales en Vivo', movies: 'Películas VOD', series: 'Series TV' };
-            document.getElementById('sidebarTitle').innerText = titles[section];
-
-            renderCategories();
-        }
-
-        function returnToDashboard() {
-            document.getElementById('viewContent').classList.add('hidden');
-            document.getElementById('viewDashboard').classList.remove('hidden');
-            document.getElementById('btnHome').classList.add('hidden');
-
-            const video = document.getElementById('videoPlayer');
-            if (video) { video.pause(); video.src = ''; }
-        }
-
-        function renderCategories() {
-            const list = allMedia[currentSection];
-            const groups = [...new Set(list.map(item => item.group))].sort();
-            const container = document.getElementById('categoryList');
-            container.innerHTML = '';
-            document.getElementById('groupCount').innerText = groups.length;
-
-            if (groups.length === 0) {
-                container.innerHTML = `<div class="text-center py-8 text-slate-500 text-xs">No hay categorías en esta sección</div>`;
-                document.getElementById('mediaList').innerHTML = `<div class="text-center py-16 text-slate-500 text-xs">No hay elementos</div>`;
-                document.getElementById('itemCount').innerText = '0';
-                return;
-            }
-
-            currentGroup = groups[0];
-
-            groups.forEach(group => {
-                const count = list.filter(item => item.group === group).length;
-                const el = document.createElement('div');
-                el.className = `flex items-center justify-between p-2.5 rounded-xl cursor-pointer text-xs font-semibold transition ${group === currentGroup ? 'bg-cyan-600 text-white shadow-md' : 'text-slate-300 hover:bg-slate-800'}`;
-                el.onclick = () => {
-                    currentGroup = group;
-                    renderCategories();
-                    filterMedia();
-                };
-                el.innerHTML = `
-                    <span class="truncate pr-2">${group}</span>
-                    <span class="bg-slate-950/40 text-[10px] px-2 py-0.5 rounded-full">${count}</span>
-                `;
-                container.appendChild(el);
-            });
-
-            filterMedia();
-        }
-
-        function filterMedia() {
-            const search = document.getElementById('searchMedia').value.toLowerCase();
-            const list = allMedia[currentSection];
-
-            const filtered = list.filter(item => {
-                const matchesGroup = (item.group === currentGroup);
-                const matchesSearch = item.name.toLowerCase().includes(search);
-                return matchesGroup && matchesSearch;
-            });
-
-            renderMediaList(filtered);
-        }
-
-        function renderMediaList(items) {
-            const container = document.getElementById('mediaList');
-            container.innerHTML = '';
-            document.getElementById('itemCount').innerText = items.length;
-
-            if (items.length === 0) {
-                container.innerHTML = `<div class="text-center py-16 text-slate-500 text-xs">No hay elementos</div>`;
-                return;
-            }
-
-            items.forEach(item => {
-                const el = document.createElement('div');
-                el.className = 'flex items-center gap-3 p-2 bg-slate-900/60 hover:bg-slate-800 border border-slate-800/80 rounded-xl cursor-pointer transition group';
-                
-                let logoHtml = item.logo 
-                    ? `<img src="${item.logo}" class="w-10 h-10 object-contain rounded-lg bg-slate-950 p-1 border border-slate-800" onerror="this.src='https://via.placeholder.com/40?text=TV'">`
-                    : `<div class="w-10 h-10 bg-slate-950 rounded-lg flex items-center justify-center text-slate-500 border border-slate-800"><i class="fa-solid fa-play text-xs"></i></div>`;
-
-                el.onclick = () => playMedia(item);
-                el.innerHTML = `
-                    ${logoHtml}
-                    <div class="min-w-0 flex-1">
-                        <p class="text-xs font-semibold truncate text-slate-200 group-hover:text-cyan-400 transition">${item.name}</p>
-                        <p class="text-[10px] text-slate-400 truncate">${item.group}</p>
-                    </div>
-                `;
-                container.appendChild(el);
-            });
-        }
-
-        function playMedia(item) {
-            const video = document.getElementById('videoPlayer');
-            document.getElementById('playingName').innerText = item.name;
-            document.getElementById('currentChannelInfo').classList.remove('hidden');
-
-            if (Hls.isSupported() && item.url.includes('.m3u8')) {
-                if (hls) hls.destroy();
-                hls = new Hls();
-                hls.loadSource(item.url);
-                hls.attachMedia(video);
-                hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                    video.play();
-                    loadAudioTracks();
-                });
-            } else {
-                video.src = item.url;
-                video.play();
-            }
-        }
-
-        function skipTime(seconds) {
-            const video = document.getElementById('videoPlayer');
-            if (video) video.currentTime += seconds;
-        }
-
-        function toggleFullscreen() {
-            const video = document.getElementById('videoPlayer');
-            if (!document.fullscreenElement) {
-                if (video.requestFullscreen) video.requestFullscreen();
-            } else {
-                if (document.exitFullscreen) document.exitFullscreen();
-            }
-        }
-
-        function loadAudioTracks() {
-            const select = document.getElementById('audioTrackSelect');
-            select.innerHTML = '<option value="">Audio / Idioma</option>';
-            if (window.hls && window.hls.audioTracks && window.hls.audioTracks.length > 0) {
-                window.hls.audioTracks.forEach((track, index) => {
-                    select.innerHTML += `<option value="${index}">${track.name || 'Audio ' + (index + 1)} (${track.lang || 'Defecto'})</option>`;
-                });
-                select.value = window.hls.audioTrack;
-            }
-        }
-
-        function changeAudioTrack(trackIndex) {
-            if (window.hls && trackIndex !== "") {
-                window.hls.audioTrack = parseInt(trackIndex);
-            }
-        }
-    </script>
-</body>
-</html>
+        function showLoader(text
