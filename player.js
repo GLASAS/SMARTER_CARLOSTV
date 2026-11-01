@@ -60,7 +60,6 @@ async function loadPlaylistDirect(url) {
     hideLoader();
 }
 
-// NUEVO MOTOR DE CLASIFICACIÓN EXACTA SEGÚN TU LISTA
 function parseExM3UExact(content) {
     const lines = content.replace(/\r\n/g, '\n').split('\n');
     let currentName = '';
@@ -95,17 +94,12 @@ function parseExM3UExact(content) {
 
             let gLower = currentGroup.toLowerCase();
 
-            // CLASIFICACIÓN ESTRICTA Y CORREGIDA
-            // Si el grupo contiene palabras clave de películas/VOD -> Se va EXCLUSIVAMENTE a MOVIES
+            // Clasificación estricta por tipo de contenido
             if (gLower.includes('pelicula') || gLower.includes('vod') || gLower.includes('movie') || gLower.includes('cine') || gLower.includes('estrenos')) {
                 allMedia.movies.push(item);
-            } 
-            // Si el grupo contiene palabras clave de series -> Se va EXCLUSIVAMENTE a SERIES
-            else if (gLower.includes('serie') || gLower.includes('temporada') || gLower.includes('capitulo') || gLower.includes('season')) {
+            } else if (gLower.includes('serie') || gLower.includes('temporada') || gLower.includes('capitulo') || gLower.includes('season')) {
                 allMedia.series.push(item);
-            } 
-            // Todo lo demás (canales de TV, 24/7, eventos) -> Se va a LIVE TV
-            else {
+            } else {
                 allMedia.live.push(item);
             }
 
@@ -125,6 +119,9 @@ function openSection(section) {
     const titles = { live: 'Canales en Vivo', movies: 'Películas VOD', series: 'Series TV' };
     document.getElementById('sidebarTitle').innerText = titles[section];
 
+    // Limpiar buscador al cambiar de sección
+    document.getElementById('searchMedia').value = '';
+    
     renderCategories();
 }
 
@@ -151,6 +148,7 @@ function renderCategories() {
         return;
     }
 
+    // Seleccionar automáticamente la primera categoría de la sección activa
     currentGroup = groups[0];
 
     groups.forEach(group => {
