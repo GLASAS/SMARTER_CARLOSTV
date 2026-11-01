@@ -1,4 +1,4 @@
-const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbykiHN6nT6qro80InnesjcRTdXNvS-JF4WxZ_HqswrwiE9NGyFOVsgjDHvTV70H661f/exec';
+const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwR-YL0aHif3Tpzy3sfOybxItD_uoxlJl7KdDhZLm4X7Vm0ZK3PtdOBgw8Y93Nh2m6xkA/exec';
 
 let currentUserData = null;
 
