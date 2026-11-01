@@ -13,7 +13,6 @@ async function initAppSession(isAuto = false) {
     document.getElementById('headerUserInfo').innerText = `Usuario: ${currentUserData.usuario} (${currentUserData.nombre || ''})`;
     document.getElementById('headerExp').innerText = `Vence: ${currentUserData.vencimiento}`;
 
-    // Validar correctamente las URLs devueltas por el Google Sheet (Columna G / URL1)
     let targetUrls = [];
     if (Array.isArray(currentUserData.urls)) {
         targetUrls = currentUserData.urls;
@@ -29,15 +28,15 @@ async function initAppSession(isAuto = false) {
     }
 }
 
-// DESCARGA DIRECTA DE LA LISTA M3U DESDE EL ENLACE DE GITHUB / GOOGLE SHEETS
 async function loadPlaylistDirect(url) {
     allMedia = { live: [], movies: [], series: [] };
     showLoader('Descargando contenido de la lista...');
 
     let playlistText = null;
 
+    // Usamos fetch directo ya que el archivo está en tu propio GitHub Pages y permite acceso
     const proxies = [
-        url, // Intento directo (como está en github.io, suele permitir acceso directo)
+        url,
         `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
         `https://corsproxy.io/?${encodeURIComponent(url)}`
     ];
@@ -47,46 +46,67 @@ async function loadPlaylistDirect(url) {
             const response = await fetch(proxyUrl);
             if (response.ok) {
                 playlistText = await response.text();
-                if (playlistText && playlistText.length > 50) {
+                if (playlistText && playlistText.length > 20) {
                     break;
                 }
             }
         } catch (e) {
-            console.warn("Intentando siguiente método de descarga...", e);
+            console.warn("Probando siguiente método de descarga...", e);
         }
     }
 
-    if (playlistText && playlistText.length > 50) {
-        parseExM3UFast(playlistText);
+    if (playlistText && playlistText.length > 20) {
+        parseExM3U2026(playlistText);
     } else {
         hideLoader();
-        alert("No se pudo leer el contenido de la lista M3U. Revisa el enlace.");
+        alert("No se pudo leer el contenido de la lista M3U. Comprueba el enlace.");
         return;
     }
 
     hideLoader();
 }
 
-// PARSER EXM3U DE ALTA VELOCIDAD
-function parseExM3UFast(content) {
+// MOTOR DE ANÁLISIS EXM3U BLINDADO (DETECTA CUALQUIER GRUPO Y CATEGORÍA)
+function parseExM3U2026(content) {
     const lines = content.replace(/\r\n/g, '\n').split('\n');
-    let name = '', logo = '', group = 'General';
+    let currentName = '';
+    let currentLogo = '';
+    let currentGroup = 'General';
 
     for (let i = 0; i < lines.length; i++) {
         let line = lines[i].trim();
-        if (line.startsWith('#EXTINF:')) {
-            let logoMatch = line.match(/tvg-logo=["']([^"']*)["']/i) || line.match(/logo=["']([^"']*)["']/i);
-            let groupMatch = line.match(/group-title=["']([^"']*)["']/i) || line.match(/group=["']([^"']*)["']/i);
-            
-            let parts = line.split(',');
-            name = parts.length > 1 ? parts.slice(1).join(',').trim() : 'Canal sin nombre';
-            logo = logoMatch ? logoMatch[1] : '';
-            group = groupMatch ? groupMatch[1].trim() : 'General';
-        } else if (line && !line.startsWith('#')) {
-            let item = { name, logo, group, url: line };
-            let gLower = group.toLowerCase();
-            let nLower = name.toLowerCase();
 
+        if (line.startsWith('#EXTINF:')) {
+            // Extraer nombre del canal (lo que está después de la última coma)
+            let commaIndex = line.lastIndexOf(',');
+            if (commaIndex !== -1) {
+                currentName = line.substring(commaIndex + 1).trim();
+            }
+
+            // Extraer Logo (tvg-logo o logo)
+            let logoMatch = line.match(/tvg-logo="([^"]*)"/i) || line.match(/logo="([^"]*)"/i);
+            currentLogo = logoMatch ? logoMatch[1] : '';
+
+            // Extraer Grupo o Categoría (group-title)
+            let groupMatch = line.match(/group-title="([^"]*)"/i) || line.match(/group-title='([^']*)'/i);
+            currentGroup = groupMatch ? groupMatch[1].trim() : 'General';
+
+        } else if (line && !line.startsWith('#')) {
+            // Es la URL del multimedia
+            let mediaUrl = line;
+            if (currentName === '') currentName = 'Canal / Contenido sin nombre';
+
+            let item = {
+                name: currentName,
+                logo: currentLogo,
+                group: currentGroup,
+                url: mediaUrl
+            };
+
+            let gLower = currentGroup.toLowerCase();
+            let nLower = currentName.toLowerCase();
+
+            // Clasificación inteligente según las categorías de tu lista
             if (gLower.includes('pelicula') || gLower.includes('vod') || gLower.includes('movie') || gLower.includes('cine') || nLower.includes('vod')) {
                 allMedia.movies.push(item);
             } else if (gLower.includes('serie') || gLower.includes('temporada') || gLower.includes('capitulo') || gLower.includes('season')) {
@@ -94,7 +114,11 @@ function parseExM3UFast(content) {
             } else {
                 allMedia.live.push(item);
             }
-            name = ''; logo = ''; group = 'General';
+
+            // Reiniciar para el siguiente registro
+            currentName = '';
+            currentLogo = '';
+            currentGroup = 'General';
         }
     }
 }
