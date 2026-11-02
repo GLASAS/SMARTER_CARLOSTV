@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">
-    <title>IPTV Smarters Pro V1.11 - Cloud Edition</title>
+    <title>IPTV Smarters Pro V1.12 - Cloud Edition</title>
     
     <!-- FAVICON E ICONOS -->
     <link rel="icon" type="image/jpeg" href="CarlostvLite.jpg">
@@ -18,16 +18,16 @@
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
-<body class="bg-[#05080f] text-slate-100 flex flex-col select-none font-sans overflow-hidden">
+<body class="bg-[#070b14] text-slate-100 flex flex-col select-none font-sans overflow-hidden w-screen h-screen">
 
-    <!-- AVISO DE GIRO HORIZONTAL -->
+    <!-- AVISO DE GIRO HORIZONTAL PARA MÓVILES Y SMART TV -->
     <div id="rotateWarning" class="fixed inset-0 bg-[#05080f] z-[99999] hidden flex-col items-center justify-center p-6 text-center space-y-4">
         <div class="w-16 h-16 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin"></div>
         <h2 class="text-white font-bold text-lg">Por favor, gira tu dispositivo</h2>
         <p class="text-xs text-slate-400 max-w-xs">Esta aplicación está diseñada para disfrutarse en posición horizontal (Landscape).</p>
     </div>
 
-    <!-- PANTALLA DE CARGA -->
+    <!-- PANTALLA DE CARGA CON PROGRESO -->
     <div id="globalLoader" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[100] flex flex-col items-center justify-center space-y-4 hidden">
         <div class="relative flex items-center justify-center">
             <div class="w-16 h-16 border-4 border-cyan-500/20 border-t-cyan-500 rounded-full animate-spin"></div>
@@ -35,13 +35,13 @@
         </div>
         <div class="text-center space-y-1">
             <h3 class="text-sm font-bold text-white tracking-widest uppercase">Cargando contenido IPTV...</h3>
-            <p class="text-xs text-slate-400" id="loaderText">Sincronizando ExM3U desde Google Sheets</p>
+            <p class="text-xs text-cyan-400 font-semibold" id="loaderText">Sincronizando ExM3U V1.1...</p>
         </div>
     </div>
 
-    <!-- PANTALLA DE LOGIN CON DISEÑO LIMPIO Y V1.1 -->
+    <!-- PANTALLA DE LOGIN CON DISEÑO ORIGINAL Y V1.1 -->
     <div id="viewLogin" class="fixed inset-0 bg-[#05080f] flex items-center justify-center z-50 p-4">
-        <div class="bg-slate-900 border border-slate-800 p-8 rounded-3xl shadow-2xl w-full max-w-md backdrop-blur-xl space-y-6">
+        <div class="bg-slate-900/90 border border-slate-800/80 p-8 rounded-3xl shadow-2xl w-full max-w-md backdrop-blur-xl space-y-6">
             <div class="text-center space-y-3">
                 <div class="inline-flex shadow-xl shadow-cyan-500/20 rounded-2xl overflow-hidden border border-cyan-500/30">
                     <img src="CarlostvLite.jpg" class="w-16 h-16 object-cover">
@@ -100,29 +100,30 @@
         </div>
     </header>
 
-    <!-- CONTENEDOR DE VISTAS -->
+    <!-- CONTENEDOR DE VISTAS PRINCIPALES -->
     <main class="flex-1 relative flex flex-col overflow-hidden hidden h-[90vh]" id="appMain">
         
-        <!-- DASHBOARD -->
-        <div id="viewDashboard" class="flex-1 flex flex-col items-center justify-center p-6 bg-gradient-to-b from-[#0b132b] to-[#05080f] overflow-y-auto">
+        <!-- DASHBOARD (SECCIONES) -->
+        <div id="viewDashboard" class="flex-1 flex flex-col items-center justify-center p-6 bg-gradient-to-b from-[#0b132b] to-[#070b14] overflow-y-auto">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-5 max-w-4xl w-full">
-                <button onclick="openSection('live')" class="group relative bg-gradient-to-br from-emerald-600 to-teal-700 p-6 rounded-3xl shadow-2xl flex flex-col items-center justify-center gap-3 border border-emerald-400/20">
+                <button onclick="openSection('live')" class="group relative bg-gradient-to-br from-emerald-600 to-teal-700 p-6 rounded-3xl shadow-2xl flex flex-col items-center justify-center gap-3 border border-emerald-400/20 hover:scale-105 transition">
                     <div class="bg-emerald-900/50 p-4 rounded-2xl"><i class="fa-solid fa-tv text-3xl text-white"></i></div>
                     <div class="text-center"><h3 class="text-base font-black text-white">LIVE TV</h3><p class="text-[11px] text-emerald-200">Canales en directo</p></div>
                 </button>
-                <button onclick="openSection('movies')" class="group relative bg-gradient-to-br from-rose-600 to-pink-700 p-6 rounded-3xl shadow-2xl flex flex-col items-center justify-center gap-3 border border-rose-400/20">
+                <button onclick="openSection('movies')" class="group relative bg-gradient-to-br from-rose-600 to-pink-700 p-6 rounded-3xl shadow-2xl flex flex-col items-center justify-center gap-3 border border-rose-400/20 hover:scale-105 transition">
                     <div class="bg-rose-900/50 p-4 rounded-2xl"><i class="fa-solid fa-film text-3xl text-white"></i></div>
                     <div class="text-center"><h3 class="text-base font-black text-white">MOVIES</h3><p class="text-[11px] text-rose-200">Cine y VOD</p></div>
                 </button>
-                <button onclick="openSection('series')" class="group relative bg-gradient-to-br from-purple-600 to-indigo-700 p-6 rounded-3xl shadow-2xl flex flex-col items-center justify-center gap-3 border border-purple-400/20">
+                <button onclick="openSection('series')" class="group relative bg-gradient-to-br from-purple-600 to-indigo-700 p-6 rounded-3xl shadow-2xl flex flex-col items-center justify-center gap-3 border border-purple-400/20 hover:scale-105 transition">
                     <div class="bg-purple-900/50 p-4 rounded-2xl"><i class="fa-solid fa-clapperboard text-3xl text-white"></i></div>
                     <div class="text-center"><h3 class="text-base font-black text-white">SERIES</h3><p class="text-[11px] text-purple-200">Temporadas y capítulos</p></div>
                 </button>
             </div>
         </div>
 
-        <!-- VISTA CONTENIDO Y REPRODUCTOR -->
+        <!-- VISTA DE CONTENIDO, CATEGORÍAS Y REPRODUCTOR -->
         <div id="viewContent" class="flex-1 flex overflow-hidden hidden h-full">
+            <!-- Panel de Categorías / Grupos -->
             <aside class="w-72 bg-slate-900 border-r border-slate-800 flex flex-col h-full">
                 <div class="p-3 border-b border-slate-800 flex items-center justify-between">
                     <h3 id="sidebarTitle" class="text-xs font-extrabold uppercase text-cyan-400">Categorías</h3>
@@ -131,6 +132,7 @@
                 <div id="categoryList" class="flex-1 overflow-y-auto no-scrollbar p-2 space-y-1"></div>
             </aside>
 
+            <!-- Panel de Elementos (Canales / Películas / Series) -->
             <div class="w-72 bg-slate-950 border-r border-slate-800 flex flex-col h-full">
                 <div class="p-3 border-b border-slate-800 space-y-2">
                     <div class="flex items-center justify-between">
@@ -138,26 +140,27 @@
                         <span id="itemCount" class="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded-full font-semibold">0</span>
                     </div>
                     <input type="text" id="searchMedia" placeholder="Buscar..." oninput="filterMedia()"
-                        class="w-full bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-lg text-xs focus:outline-none focus:border-cyan-500">
+                        class="w-full bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-lg text-xs focus:outline-none focus:border-cyan-500 text-white">
                 </div>
                 <div id="mediaList" class="flex-1 overflow-y-auto no-scrollbar p-2 space-y-1"></div>
             </div>
 
+            <!-- Pantalla del Reproductor de Video -->
             <section class="flex-1 bg-black flex flex-col justify-center items-center relative h-full">
                 <video id="videoPlayer" controls autoplay class="w-full h-full object-contain"></video>
-                <div class="absolute top-3 right-3 flex items-center gap-2 bg-slate-900/85 px-3 py-1.5 rounded-xl border border-slate-700 z-20">
-                    <button onclick="skipTime(-10)" class="bg-slate-800 text-white w-7 h-7 rounded-lg text-xs"><i class="fa-solid fa-backward-step"></i></button>
-                    <button onclick="skipTime(10)" class="bg-slate-800 text-white w-7 h-7 rounded-lg text-xs"><i class="fa-solid fa-forward-step"></i></button>
-                    <button onclick="toggleFullscreen()" class="bg-cyan-600 text-white w-7 h-7 rounded-lg text-xs"><i class="fa-solid fa-expand"></i></button>
+                <div class="absolute top-3 right-3 flex items-center gap-2 bg-slate-900/85 px-3 py-1.5 rounded-xl border border-slate-700 z-20 shadow-lg">
+                    <button onclick="skipTime(-10)" class="bg-slate-800 hover:bg-slate-700 text-white w-7 h-7 rounded-lg text-xs transition"><i class="fa-solid fa-backward-step"></i></button>
+                    <button onclick="skipTime(10)" class="bg-slate-800 hover:bg-slate-700 text-white w-7 h-7 rounded-lg text-xs transition"><i class="fa-solid fa-forward-step"></i></button>
+                    <button onclick="toggleFullscreen()" class="bg-cyan-600 hover:bg-cyan-500 text-white w-7 h-7 rounded-lg text-xs transition"><i class="fa-solid fa-expand"></i></button>
                 </div>
-                <div id="currentChannelInfo" class="absolute bottom-3 left-3 bg-slate-900/85 px-3 py-1.5 rounded-xl border border-slate-700 text-xs hidden z-20">
+                <div id="currentChannelInfo" class="absolute bottom-3 left-3 bg-slate-900/85 px-3 py-1.5 rounded-xl border border-slate-700 text-xs hidden z-20 shadow-lg">
                     <span class="text-cyan-400 font-semibold" id="playingName">Selecciona contenido</span>
                 </div>
             </section>
         </div>
     </main>
 
-    <!-- Scripts Modularizados -->
+    <!-- Scripts de la Aplicación -->
     <script src="auth.js"></script>
     <script src="player.js"></script>
     <script>
