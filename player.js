@@ -30,7 +30,7 @@ async function initAppSession(isAuto = false) {
 
 async function loadPlaylistWithProgress(url) {
     allMedia = { live: [], movies: [], series: [] };
-    showLoader('Descargando lista M3U...');
+    showLoader('Descargando lista M3U (0%)...');
 
     let playlistText = null;
     const proxies = [
@@ -42,7 +42,7 @@ async function loadPlaylistWithProgress(url) {
     let loaded = false;
     for (let i = 0; i < proxies.length; i++) {
         try {
-            showLoader(`Descargando (Intento ${i + 1}/${proxies.length})...`);
+            showLoader(`Descargando lista (Intento ${i + 1}/${proxies.length})...`);
             const response = await fetch(proxies[i]);
             if (response.ok) {
                 playlistText = await response.text();
@@ -52,25 +52,25 @@ async function loadPlaylistWithProgress(url) {
                 }
             }
         } catch (e) {
-            console.warn("Proxy falló...", e);
+            console.warn("Proxy fallido, probando siguiente...", e);
         }
     }
 
     if (loaded && playlistText) {
-        showLoader('Clasificando canales, películas y series...');
+        showLoader('Analizando grupos y clasificando películas...');
         setTimeout(() => {
-            parseExM3UPerfect(playlistText);
+            parseExM3UProfessional(playlistText);
             hideLoader();
             openSection('live');
-        }, 100);
+        }, 150);
     } else {
         hideLoader();
-        alert("No se pudo descargar la lista M3U.");
+        alert("No se pudo descargar la lista M3U. Revisa la URL en Google Sheets.");
     }
 }
 
-// MOTOR DE LECTURA EXM3U PERFECTO Y CLASIFICACIÓN EXACTA
-function parseExM3UPerfect(content) {
+// MOTOR PROFESIONAL DE LECTURA Y CORRECCIÓN DE ENLACES VOD Y CANALES
+function parseExM3UProfessional(content) {
     const lines = content.replace(/\r\n/g, '\n').split('\n');
     let currentName = '';
     let currentLogo = '';
@@ -104,12 +104,16 @@ function parseExM3UPerfect(content) {
 
             let gLower = currentGroup.toLowerCase();
             let nLower = currentName.toLowerCase();
+            let uLower = mediaUrl.toLowerCase();
 
-            // CLASIFICACIÓN LIMPIA: Separar VOD/Películas de Live TV y Series
-            if (gLower.includes('pelicula') || gLower.includes('vod') || gLower.includes('movie') || gLower.includes('cine') || gLower.includes('animacion') || gLower.includes('estrenos') || gLower.includes('comedia') || gLower.includes('infantiles')) {
-                allMedia.movies.push(item);
-            } else if (gLower.includes('serie') || gLower.includes('temporada') || gLower.includes('capitulo') || gLower.includes('season')) {
+            // IDENTIFICACIÓN EXACTA: Detecta si es Película (VOD), Serie o Canal en Vivo
+            const isMovie = gLower.includes('pelicula') || gLower.includes('vod') || gLower.includes('movie') || gLower.includes('cine') || gLower.includes('estrenos') || gLower.includes('comedia') || gLower.includes('animacion') || gLower.includes('animadas') || uLower.includes('/movie/') || uLower.includes('.mp4') || uLower.includes('.mkv');
+            const isSeries = gLower.includes('serie') || gLower.includes('temporada') || gLower.includes('capitulo') || gLower.includes('season') || uLower.includes('/series/');
+
+            if (isSeries) {
                 allMedia.series.push(item);
+            } else if (isMovie) {
+                allMedia.movies.push(item);
             } else {
                 allMedia.live.push(item);
             }
@@ -225,22 +229,27 @@ function renderMediaList(items) {
     });
 }
 
+// REPRODUCTOR BLINDADO PARA CANALES HLS Y PELÍCULAS MP4/MKV
 function playMedia(item) {
     const video = document.getElementById('videoPlayer');
     document.getElementById('playingName').innerText = item.name;
     document.getElementById('currentChannelInfo').classList.remove('hidden');
 
-    if (Hls.isSupported() && item.url.includes('.m3u8')) {
-        if (hls) hls.destroy();
+    if (hls) {
+        hls.destroy();
+        hls = null;
+    }
+
+    if (item.url.includes('.m3u8') && Hls.isSupported()) {
         hls = new Hls();
         hls.loadSource(item.url);
         hls.attachMedia(video);
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
-            video.play();
+            video.play().catch(e => console.log("Autoplay bloqueado por el navegador:", e));
         });
     } else {
         video.src = item.url;
-        video.play();
+        video.play().catch(e => console.log("Reproducción directa iniciada:", e));
     }
 }
 
