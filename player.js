@@ -28,10 +28,9 @@ async function initAppSession(isAuto = false) {
     }
 }
 
-// DESCARGA CON INDICADOR DE PROGRESO Y LECTURA EXACTA
 async function loadPlaylistWithProgress(url) {
     allMedia = { live: [], movies: [], series: [] };
-    showLoader('Conectando con la lista M3U (0%)...');
+    showLoader('Descargando lista M3U...');
 
     let playlistText = null;
     const proxies = [
@@ -43,7 +42,7 @@ async function loadPlaylistWithProgress(url) {
     let loaded = false;
     for (let i = 0; i < proxies.length; i++) {
         try {
-            showLoader(`Descargando lista (Intento ${i + 1}/${proxies.length})...`);
+            showLoader(`Descargando (Intento ${i + 1}/${proxies.length})...`);
             const response = await fetch(proxies[i]);
             if (response.ok) {
                 playlistText = await response.text();
@@ -53,35 +52,31 @@ async function loadPlaylistWithProgress(url) {
                 }
             }
         } catch (e) {
-            console.warn("Proxy fallido, probando siguiente...", e);
+            console.warn("Proxy falló...", e);
         }
     }
 
     if (loaded && playlistText) {
-        showLoader('Procesando grupos y clasificando contenido...');
-        // Pequeño respiro para que el navegador actualice el texto de carga
+        showLoader('Clasificando canales, películas y series...');
         setTimeout(() => {
-            parseExM3UIntelligent(playlistText);
+            parseExM3UPerfect(playlistText);
             hideLoader();
-            // Mostrar por defecto la sección Live TV o la primera disponible
             openSection('live');
         }, 100);
     } else {
         hideLoader();
-        alert("No se pudo descargar la lista M3U. Revisa tu conexión o el enlace.");
+        alert("No se pudo descargar la lista M3U.");
     }
 }
 
-// MOTOR DE CLASIFICACIÓN INTELIGENTE (DETECTA SI ES VOD, SERIE O LIVE TV)
-function parseExM3UIntelligent(content) {
+// MOTOR DE LECTURA EXM3U PERFECTO Y CLASIFICACIÓN EXACTA
+function parseExM3UPerfect(content) {
     const lines = content.replace(/\r\n/g, '\n').split('\n');
     let currentName = '';
     let currentLogo = '';
     let currentGroup = 'General';
 
-    const totalLines = lines.length;
-
-    for (let i = 0; i < totalLines; i++) {
+    for (let i = 0; i < lines.length; i++) {
         let line = lines[i].trim();
 
         if (line.startsWith('#EXTINF:')) {
@@ -110,21 +105,12 @@ function parseExM3UIntelligent(content) {
             let gLower = currentGroup.toLowerCase();
             let nLower = currentName.toLowerCase();
 
-            // CLASIFICACIÓN HÍBRIDA ROBUSTA:
-            // Si el grupo O el nombre tienen formato de película (ej. años como 2001, 2004, 2007 o palabras VOD/Película/Animación de cine)
-            const isMovieCategory = gLower.includes('pelicula') || gLower.includes('vod') || gLower.includes('movie') || gLower.includes('cine') || gLower.includes('animacion') || gLower.includes('estrenos') || gLower.includes('comedia');
-            const isSeriesCategory = gLower.includes('serie') || gLower.includes('temporada') || gLower.includes('capitulo') || gLower.includes('season') || nLower.includes('t1') || nLower.includes('s01');
-
-            // Si es categoría de animación pero tiene capítulos o temporadas, o palabras de series -> Series
-            if (isSeriesCategory) {
-                allMedia.series.push(item);
-            } 
-            // Si es categoría de películas / VOD / Animación de cine (como Shrek) -> Movies
-            else if (isMovieCategory || gLower.includes('animadas')) {
+            // CLASIFICACIÓN LIMPIA: Separar VOD/Películas de Live TV y Series
+            if (gLower.includes('pelicula') || gLower.includes('vod') || gLower.includes('movie') || gLower.includes('cine') || gLower.includes('animacion') || gLower.includes('estrenos') || gLower.includes('comedia') || gLower.includes('infantiles')) {
                 allMedia.movies.push(item);
-            } 
-            // Todo lo demás que sean canales de televisión 24/7 o en vivo -> Live TV
-            else {
+            } else if (gLower.includes('serie') || gLower.includes('temporada') || gLower.includes('capitulo') || gLower.includes('season')) {
+                allMedia.series.push(item);
+            } else {
                 allMedia.live.push(item);
             }
 
@@ -171,7 +157,6 @@ function renderCategories() {
         return;
     }
 
-    // Mantener la categoría actual si existe en la sección, o seleccionar la primera
     if (!groups.includes(currentGroup)) {
         currentGroup = groups[0];
     }
@@ -181,7 +166,6 @@ function renderCategories() {
         const el = document.createElement('div');
         el.className = `flex items-center justify-between p-2.5 rounded-xl cursor-pointer text-xs font-semibold transition ${group === currentGroup ? 'bg-cyan-600 text-white shadow-md' : 'text-slate-300 hover:bg-slate-800'}`;
         
-        // Evento de clic fluido y responsivo para cambiar de categoría al instante
         el.onclick = () => {
             currentGroup = group;
             renderCategories();
@@ -226,8 +210,8 @@ function renderMediaList(items) {
         el.className = 'flex items-center gap-3 p-2 bg-slate-900/60 hover:bg-slate-800 border border-slate-800/80 rounded-xl cursor-pointer transition group';
         
         let logoHtml = item.logo 
-            ? `<img src="${item.logo}" class="w-9 h-9 object-contain rounded-lg bg-slate-950 p-1 border border-slate-800" onerror="this.src='https://via.placeholder.com/40?text=TV'">`
-            : `<div class="w-9 h-9 bg-slate-950 rounded-lg flex items-center justify-center text-slate-500 border border-slate-800"><i class="fa-solid fa-play text-xs"></i></div>`;
+            ? `<img src="${item.logo}" class="w-9 h-9 object-cover rounded-lg bg-slate-950 p-1 border border-slate-800" onerror="this.src='https://via.placeholder.com/40?text=VOD'">`
+            : `<div class="w-9 h-9 bg-slate-950 rounded-lg flex items-center justify-center text-slate-500 border border-slate-800"><i class="fa-solid fa-film text-xs"></i></div>`;
 
         el.onclick = () => playMedia(item);
         el.innerHTML = `
