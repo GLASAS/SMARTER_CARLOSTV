@@ -21,16 +21,17 @@ async function initAppSession(isAuto = false) {
     }
 
     if (targetUrls.length > 0) {
-        await loadPlaylistDirect(targetUrls[0]);
+        await loadPlaylistWithProgress(targetUrls[0]);
     } else {
         hideLoader();
         alert("No se encontró ninguna URL en la columna URL1 de Google Sheets.");
     }
 }
 
-async function loadPlaylistDirect(url) {
+// DESCARGA CON INDICADOR DE PROGRESO Y LECTURA EXACTA
+async function loadPlaylistWithProgress(url) {
     allMedia = { live: [], movies: [], series: [] };
-    showLoader('Descargando contenido de la lista...');
+    showLoader('Conectando con la lista M3U (0%)...');
 
     let playlistText = null;
     const proxies = [
@@ -39,34 +40,48 @@ async function loadPlaylistDirect(url) {
         `https://corsproxy.io/?${encodeURIComponent(url)}`
     ];
 
-    for (let proxyUrl of proxies) {
+    let loaded = false;
+    for (let i = 0; i < proxies.length; i++) {
         try {
-            const response = await fetch(proxyUrl);
+            showLoader(`Descargando lista (Intento ${i + 1}/${proxies.length})...`);
+            const response = await fetch(proxies[i]);
             if (response.ok) {
                 playlistText = await response.text();
-                if (playlistText && playlistText.length > 20) break;
+                if (playlistText && playlistText.length > 50) {
+                    loaded = true;
+                    break;
+                }
             }
-        } catch (e) {}
+        } catch (e) {
+            console.warn("Proxy fallido, probando siguiente...", e);
+        }
     }
 
-    if (playlistText && playlistText.length > 20) {
-        parseExM3UExact(playlistText);
+    if (loaded && playlistText) {
+        showLoader('Procesando grupos y clasificando contenido...');
+        // Pequeño respiro para que el navegador actualice el texto de carga
+        setTimeout(() => {
+            parseExM3UIntelligent(playlistText);
+            hideLoader();
+            // Mostrar por defecto la sección Live TV o la primera disponible
+            openSection('live');
+        }, 100);
     } else {
         hideLoader();
-        alert("No se pudo leer el contenido de la lista M3U.");
-        return;
+        alert("No se pudo descargar la lista M3U. Revisa tu conexión o el enlace.");
     }
-
-    hideLoader();
 }
 
-function parseExM3UExact(content) {
+// MOTOR DE CLASIFICACIÓN INTELIGENTE (DETECTA SI ES VOD, SERIE O LIVE TV)
+function parseExM3UIntelligent(content) {
     const lines = content.replace(/\r\n/g, '\n').split('\n');
     let currentName = '';
     let currentLogo = '';
     let currentGroup = 'General';
 
-    for (let i = 0; i < lines.length; i++) {
+    const totalLines = lines.length;
+
+    for (let i = 0; i < totalLines; i++) {
         let line = lines[i].trim();
 
         if (line.startsWith('#EXTINF:')) {
@@ -93,13 +108,23 @@ function parseExM3UExact(content) {
             };
 
             let gLower = currentGroup.toLowerCase();
+            let nLower = currentName.toLowerCase();
 
-            // Clasificación estricta por tipo de contenido
-            if (gLower.includes('pelicula') || gLower.includes('vod') || gLower.includes('movie') || gLower.includes('cine') || gLower.includes('estrenos')) {
-                allMedia.movies.push(item);
-            } else if (gLower.includes('serie') || gLower.includes('temporada') || gLower.includes('capitulo') || gLower.includes('season')) {
+            // CLASIFICACIÓN HÍBRIDA ROBUSTA:
+            // Si el grupo O el nombre tienen formato de película (ej. años como 2001, 2004, 2007 o palabras VOD/Película/Animación de cine)
+            const isMovieCategory = gLower.includes('pelicula') || gLower.includes('vod') || gLower.includes('movie') || gLower.includes('cine') || gLower.includes('animacion') || gLower.includes('estrenos') || gLower.includes('comedia');
+            const isSeriesCategory = gLower.includes('serie') || gLower.includes('temporada') || gLower.includes('capitulo') || gLower.includes('season') || nLower.includes('t1') || nLower.includes('s01');
+
+            // Si es categoría de animación pero tiene capítulos o temporadas, o palabras de series -> Series
+            if (isSeriesCategory) {
                 allMedia.series.push(item);
-            } else {
+            } 
+            // Si es categoría de películas / VOD / Animación de cine (como Shrek) -> Movies
+            else if (isMovieCategory || gLower.includes('animadas')) {
+                allMedia.movies.push(item);
+            } 
+            // Todo lo demás que sean canales de televisión 24/7 o en vivo -> Live TV
+            else {
                 allMedia.live.push(item);
             }
 
@@ -119,9 +144,7 @@ function openSection(section) {
     const titles = { live: 'Canales en Vivo', movies: 'Películas VOD', series: 'Series TV' };
     document.getElementById('sidebarTitle').innerText = titles[section];
 
-    // Limpiar buscador al cambiar de sección
     document.getElementById('searchMedia').value = '';
-    
     renderCategories();
 }
 
@@ -148,18 +171,23 @@ function renderCategories() {
         return;
     }
 
-    // Seleccionar automáticamente la primera categoría de la sección activa
-    currentGroup = groups[0];
+    // Mantener la categoría actual si existe en la sección, o seleccionar la primera
+    if (!groups.includes(currentGroup)) {
+        currentGroup = groups[0];
+    }
 
     groups.forEach(group => {
         const count = list.filter(item => item.group === group).length;
         const el = document.createElement('div');
         el.className = `flex items-center justify-between p-2.5 rounded-xl cursor-pointer text-xs font-semibold transition ${group === currentGroup ? 'bg-cyan-600 text-white shadow-md' : 'text-slate-300 hover:bg-slate-800'}`;
+        
+        // Evento de clic fluido y responsivo para cambiar de categoría al instante
         el.onclick = () => {
             currentGroup = group;
             renderCategories();
             filterMedia();
         };
+
         el.innerHTML = `
             <span class="truncate pr-2">${group}</span>
             <span class="bg-slate-950/40 text-[10px] px-2 py-0.5 rounded-full">${count}</span>
