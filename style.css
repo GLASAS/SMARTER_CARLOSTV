@@ -10,9 +10,10 @@ html, body {
     padding: 0;
     overflow: hidden;
     background-color: #05080f;
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
-/* Forzar orientación horizontal (Landscape) en dispositivos móviles */
+/* Aviso de orientación horizontal en móviles */
 @media screen and (orientation: portrait) {
     #rotateWarning {
         display: flex !important;
