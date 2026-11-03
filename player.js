@@ -109,7 +109,6 @@ function returnToDashboard() {
     document.getElementById('viewContent').classList.add('hidden');
     document.getElementById('viewDashboard').classList.remove('hidden');
     document.getElementById('btnHome').classList.add('hidden');
-
     stopMedia();
 }
 
@@ -121,12 +120,10 @@ function renderCategories() {
     container.innerHTML = '';
     
     groups.unshift('TODAS LAS CATEGORÍAS');
-    document.getElementById('groupCount').innerText = groups.length - 1;
 
     if (groups.length <= 1) {
-        container.innerHTML = `<div class="text-center py-8 text-slate-500 text-xs">No hay categorías</div>`;
-        document.getElementById('mediaList').innerHTML = `<div class="text-center py-16 text-slate-500 text-xs">No hay elementos</div>`;
-        document.getElementById('itemCount').innerText = '0';
+        container.innerHTML = `<div class="text-center py-4 text-slate-500 text-xs">No hay categorías</div>`;
+        document.getElementById('mediaList').innerHTML = `<div class="text-center py-8 text-slate-500 text-xs">No hay elementos</div>`;
         return;
     }
 
@@ -137,7 +134,7 @@ function renderCategories() {
     groups.forEach(group => {
         let count = group === 'TODAS LAS CATEGORÍAS' ? list.length : list.filter(item => item.group === group).length;
         const el = document.createElement('div');
-        el.className = `flex items-center justify-between p-2.5 rounded-xl cursor-pointer text-xs font-semibold transition ${group === currentGroup ? 'bg-cyan-600 text-white shadow-md' : 'text-slate-300 hover:bg-slate-800'}`;
+        el.className = `flex items-center justify-between p-2 rounded-lg cursor-pointer text-xs font-semibold transition ${group === currentGroup ? 'bg-cyan-600 text-white shadow' : 'text-slate-300 hover:bg-slate-800'}`;
         
         el.onclick = () => {
             currentGroup = group;
@@ -171,10 +168,9 @@ function filterMedia() {
 function renderMediaList(items) {
     const container = document.getElementById('mediaList');
     container.innerHTML = '';
-    document.getElementById('itemCount').innerText = items.length;
 
     if (items.length === 0) {
-        container.innerHTML = `<div class="text-center py-16 text-slate-500 text-xs">No hay elementos</div>`;
+        container.innerHTML = `<div class="text-center py-8 text-slate-500 text-xs">No hay elementos</div>`;
         return;
     }
 
@@ -198,7 +194,7 @@ function renderMediaList(items) {
     });
 }
 
-// REPRODUCTOR CON CONTROLES MANUALES (PLAY, PAUSE, STOP)
+// REPRODUCTOR MULTICODEC CON CONTROLES MANUALES
 function playMedia(item) {
     const video = document.getElementById('videoPlayer');
     document.getElementById('playingName').innerText = item.name;
@@ -228,7 +224,7 @@ function playMedia(item) {
         hls.loadSource(mediaUrl);
         hls.attachMedia(video);
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
-            video.play().catch(e => console.log("Clic manual requerido para reproducir HLS:", e));
+            video.play().catch(e => console.log("Clic en Play necesario:", e));
         });
         hls.on(Hls.Events.ERROR, (event, data) => {
             if (data.fatal) {
@@ -246,30 +242,24 @@ function fallbackDirectPlay(urlToTry, videoElement, originalUrl = null) {
     videoElement.src = urlToTry;
     videoElement.load();
     videoElement.play().catch(err => {
-        console.warn("Fallo con URL proxy, intentando enlace directo...", err);
         if (originalUrl && urlToTry !== originalUrl) {
             videoElement.src = originalUrl;
             videoElement.load();
             videoElement.play().catch(e => {
-                console.log("Esperando acción manual de reproducción en el reproductor.");
+                console.log("Usa el botón Play manual para iniciar la reproducción.");
             });
         }
     });
 }
 
-// FUNCIONES DE CONTROL MANUAL (PLAY, PAUSE, STOP)
 function manualPlay() {
     const video = document.getElementById('videoPlayer');
-    if (video) {
-        video.play().catch(e => alert("Presiona el botón de reproducción nativo del video para iniciar."));
-    }
+    if (video) video.play().catch(e => alert("Presiona reproducir en la barra del reproductor."));
 }
 
 function manualPause() {
     const video = document.getElementById('videoPlayer');
-    if (video) {
-        video.pause();
-    }
+    if (video) video.pause();
 }
 
 function stopMedia() {
@@ -286,16 +276,8 @@ function stopMedia() {
     document.getElementById('currentChannelInfo').classList.add('hidden');
 }
 
-function skipTime(seconds) {
-    const video = document.getElementById('videoPlayer');
-    if (video) video.currentTime += seconds;
+function showLoader(text) {
+    console.log(text);
 }
 
-function toggleFullscreen() {
-    const video = document.getElementById('videoPlayer');
-    if (!document.fullscreenElement) {
-        if (video.requestFullscreen) video.requestFullscreen();
-    } else {
-        if (document.exitFullscreen) document.exitFullscreen();
-    }
-}
+function hideLoader() {}
