@@ -21,33 +21,55 @@ async function initAppSession(isAuto = false) {
     }
 
     if (targetUrls.length > 0) {
-        await loadPlaylistDirect(targetUrls[0].trim());
+        await loadPlaylistRobust(targetUrls[0].trim());
     } else {
         hideLoader();
         alert("No se encontró ninguna URL en la columna URL1 de Google Sheets.");
     }
 }
 
-async function loadPlaylistDirect(url) {
+// DESCARGA ROBUSTA CON MÚLTIPLES PROXIES TRANSPARENTES
+async function loadPlaylistRobust(url) {
     allChannels = [];
-    showLoader('Descargando contenido de la lista...');
+    showLoader('Descargando lista M3U...');
 
-    try {
-        const response = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`);
-        if (!response.ok) throw new Error('No se pudo descargar la lista M3U');
-        
-        const data = await response.text();
-        parseM3UUniversal(data);
+    let playlistText = null;
+    const proxies = [
+        `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+        `https://corsproxy.io/?${encodeURIComponent(url)}`,
+        url
+    ];
+
+    let success = false;
+    for (let i = 0; i < proxies.length; i++) {
+        try {
+            const response = await fetch(proxies[i]);
+            if (response.ok) {
+                playlistText = await response.text();
+                if (playlistText && playlistText.length > 20) {
+                    success = true;
+                    break;
+                }
+            }
+        } catch (e) {
+            console.warn(`Intento de descarga ${i + 1} fallido, probando siguiente...`, e);
+        }
+    }
+
+    if (success && playlistText) {
+        showLoader('Analizando canales y películas VOD...');
+        setTimeout(() => {
+            parseM3UUniversal(playlistText);
+            hideLoader();
+            returnToDashboard();
+        }, 100);
+    } else {
         hideLoader();
-        returnToDashboard();
-    } catch (error) {
-        console.error(error);
-        hideLoader();
-        alert('Error al cargar la lista M3U. Comprueba que el enlace de Google Sheets sea accesible.');
+        alert('No se pudo descargar la lista M3U. Comprueba que el enlace sea público y accesible.');
     }
 }
 
-// MOTOR DE ANÁLISIS UNIVERSAL PARA TODO TIPO DE CONTENIDO
+// ANALIZADOR UNIVERSAL COMPATIBLE CON TU LISTA
 function parseM3UUniversal(content) {
     allChannels = [];
     const lines = content.replace(/\r\n/g, '\n').split('\n');
@@ -70,7 +92,7 @@ function parseM3UUniversal(content) {
                 let gLower = currentChannel.group.toLowerCase();
                 let uLower = currentChannel.url.toLowerCase();
 
-                const isMovie = gLower.includes('pelicula') || gLower.includes('vod') || gLower.includes('movie') || gLower.includes('cine') || gLower.includes('estrenos') || gLower.includes('comedia') || gLower.includes('animacion') || gLower.includes('animadas') || uLower.includes('.mp4') || uLower.includes('.mkv') || uLower.includes('.avi') || uLower.includes('.mov');
+                const isMovie = gLower.includes('pelicula') || gLower.includes('vod') || gLower.includes('movie') || gLower.includes('cine') || gLower.includes('estrenos') || gLower.includes('comedia') || gLower.includes('animacion') || gLower.includes('animadas') || uLower.includes('.mp4') || uLower.includes('.mkv') || uLower.includes('.mov');
                 const isSeries = gLower.includes('serie') || gLower.includes('temporada') || gLower.includes('capitulo') || uLower.includes('/series/');
 
                 if (isSeries) {
@@ -199,7 +221,7 @@ function renderMediaList(items) {
     });
 }
 
-// REPRODUCTOR MULTICODEC BLINDADO (SOPORTE HLS, MP4, MKV, TS Y PROXY AUTOMÁTICO)
+// REPRODUCTOR MULTICODEC BLINDADO CON PROXY PARA EVITAR CORS Y MIXED CONTENT
 function playMedia(item) {
     const video = document.getElementById('videoPlayer');
     document.getElementById('playingName').innerText = item.name;
@@ -216,33 +238,26 @@ function playMedia(item) {
 
     let mediaUrl = item.url;
 
-    // Si la página está en HTTPS y el enlace es HTTP, aplicamos proxy transparente para evitar bloqueos de seguridad
+    // Si la app está en HTTPS y el stream es HTTP, canalizamos por proxy para evitar bloqueo del navegador
     if (mediaUrl.startsWith('http://') && window.location.protocol === 'https:') {
         mediaUrl = `https://corsproxy.io/?${encodeURIComponent(item.url)}`;
     }
 
-    // Si es un stream HLS (.m3u8)
     if (item.url.includes('.m3u8') && Hls.isSupported()) {
-        hls = new Hls({
-            xhrSetup: function (xhr, url) {
-                xhr.withCredentials = false;
-            }
-        });
+        hls = new Hls();
         hls.loadSource(mediaUrl);
         hls.attachMedia(video);
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
-            video.play().catch(e => console.log("Reproducción HLS iniciada:", e));
+            video.play().catch(e => console.log("Play HLS error:", e));
         });
-        hls.on(Hls.Events.ERROR, function (event, data) {
+        hls.on(Hls.Events.ERROR, (event, data) => {
             if (data.fatal) {
-                console.warn("Error fatal HLS, intentando reproducción directa...", data);
                 hls.destroy();
                 hls = null;
                 fallbackDirectPlay(item.url, video);
             }
         });
     } else {
-        // Para MP4, MKV, AVI, TS y otros contenedores multimedia
         fallbackDirectPlay(mediaUrl, video, item.url);
     }
 }
@@ -251,12 +266,12 @@ function fallbackDirectPlay(urlToTry, videoElement, originalUrl = null) {
     videoElement.src = urlToTry;
     videoElement.load();
     videoElement.play().catch(err => {
-        console.warn("Fallo con URL procesada, probando enlace limpio original...", err);
+        console.warn("Fallo con URL proxy, intentando enlace directo...", err);
         if (originalUrl && urlToTry !== originalUrl) {
             videoElement.src = originalUrl;
             videoElement.load();
             videoElement.play().catch(e => {
-                console.error("El navegador no soporta los códecs de este archivo multimedia específico:", e);
+                console.error("Error reproduciendo archivo multimedia:", e);
             });
         }
     });
