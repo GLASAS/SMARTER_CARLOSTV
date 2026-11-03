@@ -1,6 +1,6 @@
 let allChannels = [];
 let currentSection = 'live';
-let currentGroup = 'ALL';
+let currentGroup = 'TODAS LAS CATEGORÍAS';
 let hls = null;
 
 async function initAppSession(isAuto = false) {
@@ -28,9 +28,10 @@ async function initAppSession(isAuto = false) {
     }
 }
 
+// DESCARGA DIRECTA Y SEGURA DE LA LISTA M3U
 async function loadPlaylistDirect(url) {
     allChannels = [];
-    showLoader('Descargando contenido...');
+    showLoader('Descargando contenido de la lista...');
 
     try {
         const response = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`);
@@ -40,16 +41,17 @@ async function loadPlaylistDirect(url) {
         parseM3UUniversal(data);
         hideLoader();
         
-        // MOSTRAR DIRECTAMENTE EL MENÚ PRINCIPAL (DASHBOARD) TRAS EL LOGIN
+        // ENTRAR DIRECTAMENTE AL MENÚ PRINCIPAL (DASHBOARD) TRAS CARGAR
         returnToDashboard();
     } catch (error) {
         console.error(error);
         hideLoader();
-        alert('Error al cargar la lista M3U. Comprueba que el enlace sea accesible.');
+        alert('Error al cargar la lista M3U. Comprueba que el enlace de Google Sheets sea accesible.');
     }
 }
 
-function parseM3U(content) {
+// MOTOR DE ANÁLISIS UNIVERSAL COMPATIBLE CON CUALQUIER M3U
+function parseM3UUniversal(content) {
     allChannels = [];
     const lines = content.replace(/\r\n/g, '\n').split('\n');
     let currentChannel = {};
@@ -71,6 +73,7 @@ function parseM3U(content) {
                 let gLower = currentChannel.group.toLowerCase();
                 let uLower = currentChannel.url.toLowerCase();
 
+                // Clasificación flexible para las secciones del menú
                 if (gLower.includes('pelicula') || gLower.includes('vod') || gLower.includes('movie') || gLower.includes('cine') || gLower.includes('estrenos') || gLower.includes('comedia') || gLower.includes('animacion') || gLower.includes('animadas') || uLower.includes('.mp4') || uLower.includes('.mkv')) {
                     currentChannel.type = 'movies';
                 } else if (gLower.includes('serie') || gLower.includes('temporada') || gLower.includes('capitulo')) {
@@ -85,10 +88,6 @@ function parseM3U(content) {
     }
 }
 
-function parseM3UUniversal(content) {
-    parseM3U(content);
-}
-
 function openSection(section) {
     currentSection = section;
     document.getElementById('viewDashboard').classList.add('hidden');
@@ -99,18 +98,21 @@ function openSection(section) {
     document.getElementById('sidebarTitle').innerText = titles[section];
 
     document.getElementById('searchMedia').value = '';
-    currentGroup = 'ALL';
+    currentGroup = 'TODAS LAS CATEGORÍAS';
     renderCategories();
 }
 
 function returnToDashboard() {
-    // OCULTAR CONTENIDO Y MOSTRAR EL MENÚ PRINCIPAL (DASHBOARD)
     document.getElementById('viewContent').classList.add('hidden');
     document.getElementById('viewDashboard').classList.remove('hidden');
     document.getElementById('btnHome').classList.add('hidden');
 
     const video = document.getElementById('videoPlayer');
-    if (video) { video.pause(); video.src = ''; }
+    if (video) { 
+        video.pause(); 
+        video.removeAttribute('src');
+        video.load(); 
+    }
 }
 
 function renderCategories() {
@@ -130,7 +132,7 @@ function renderCategories() {
         return;
     }
 
-    if (currentGroup === 'ALL' || !groups.includes(currentGroup)) {
+    if (!groups.includes(currentGroup)) {
         currentGroup = groups[0];
     }
 
@@ -198,6 +200,7 @@ function renderMediaList(items) {
     });
 }
 
+// REPRODUCTOR UNIVERSAL LIMPIO Y DIRECTO
 function playMedia(item) {
     const video = document.getElementById('videoPlayer');
     document.getElementById('playingName').innerText = item.name;
@@ -212,27 +215,18 @@ function playMedia(item) {
     video.removeAttribute('src');
     video.load();
 
-    let playUrl = item.url;
-
-    if (playUrl.startsWith('http://') && window.location.protocol === 'https:') {
-        playUrl = `https://corsproxy.io/?${encodeURIComponent(item.url)}`;
-    }
-
-    if (item.url.includes('.m3u8') && Hls.isSupported()) {
+    if (Hls.isSupported() && item.url.includes('.m3u8')) {
         hls = new Hls();
-        hls.loadSource(playUrl);
+        hls.loadSource(item.url);
         hls.attachMedia(video);
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
             video.play().catch(e => console.log("Play HLS error:", e));
         });
     } else {
-        video.src = playUrl;
+        video.src = item.url;
         video.load();
-        video.play().catch(err => {
-            console.warn("Fallo con URL modificada, intentando enlace directo original...", err);
-            video.src = item.url;
-            video.load();
-            video.play().catch(e => console.error("Error definitivo de reproducción:", e));
+        video.play().catch(e => {
+            console.warn("Reproducción directa:", e);
         });
     }
 }
