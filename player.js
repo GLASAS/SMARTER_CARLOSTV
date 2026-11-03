@@ -4,7 +4,7 @@ let currentGroup = '';
 let hls = null;
 
 async function initAppSession(isAuto = false) {
-    if (!isAuto) showLoader('Sincronizando lista ExM3U V1.1...');
+    if (!isAuto) showLoader('Sincronizando credenciales y lista...');
     
     document.getElementById('viewLogin').classList.add('hidden');
     document.getElementById('appHeader').classList.remove('hidden');
@@ -21,40 +21,64 @@ async function initAppSession(isAuto = false) {
     }
 
     if (targetUrls.length > 0) {
-        await loadPlaylistDirect(targetUrls[0]);
+        // Limpiamos la URL de espacios o saltos de línea accidentales
+        let cleanUrl = targetUrls[0].trim();
+        await loadPlaylistRobust(cleanUrl);
     } else {
         hideLoader();
         alert("No se encontró ninguna URL en la columna URL1 de Google Sheets.");
     }
 }
 
-async function loadPlaylistDirect(url) {
+// SISTEMA ROBUSTO DE DESCARGA CON MÚLTIPLES PROXIES Y REINTENTO
+async function loadPlaylistRobust(url) {
     allChannels = [];
-    showLoader('Descargando lista M3U...');
+    showLoader('Descargando lista M3U desde la nube...');
 
-    try {
-        const response = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`);
-        if (!response.ok) throw new Error('No se pudo descargar la lista M3U');
-        
-        const data = await response.text();
-        parseExM3UUniversal(data);
+    let playlistText = null;
+    const downloadEndpoints = [
+        `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+        `https://corsproxy.io/?${encodeURIComponent(url)}`,
+        url // Intento directo por si el servidor permite CORS
+    ];
+
+    for (let i = 0; i < downloadEndpoints.length; i++) {
+        try {
+            showLoader(`Conectando (Intento ${i + 1}/${downloadEndpoints.length})...`);
+            const response = await fetch(downloadEndpoints[i]);
+            if (response.ok) {
+                playlistText = await response.text();
+                if (playlistText && playlistText.length > 50) {
+                    break;
+                }
+            }
+        } catch (e) {
+            console.warn(`Intento ${i + 1} fallido, probando siguiente...`, e);
+        }
+    }
+
+    if (playlistText && playlistText.length > 50) {
+        showLoader('Procesando canales y películas VOD...');
+        setTimeout(() => {
+            parseExM3UPerfect(playlistText);
+            hideLoader();
+            openSection('live');
+        }, 100);
+    } else {
         hideLoader();
-        openSection('live');
-    } catch (error) {
-        console.error(error);
-        hideLoader();
-        alert('Error al cargar la lista M3U. Comprueba que el enlace sea accesible.');
+        alert("Error al cargar la lista M3U. Comprueba que el enlace en Google Sheets sea accesible y público.");
     }
 }
 
-// LECTURA UNIVERSAL DE EXM3U (CANALES, PELÍCULAS Y SERIES)
-function parseExM3UUniversal(content) {
+// LÁSER DE CLASIFICACIÓN EXM3U PERFECTO (CANALES, PELÍCULAS Y SERIES)
+function parseExM3UPerfect(content) {
     allChannels = [];
     const lines = content.replace(/\r\n/g, '\n').split('\n');
     let currentItem = {};
 
     for (let i = 0; i < lines.length; i++) {
         let line = lines[i].trim();
+
         if (line.startsWith('#EXTINF:')) {
             currentItem = {};
             let tvgLogoMatch = line.match(/tvg-logo="([^"]*)"/i) || line.match(/logo="([^"]*)"/i);
@@ -64,13 +88,14 @@ function parseExM3UUniversal(content) {
             currentItem.name = nameParts[nameParts.length - 1].trim();
             currentItem.logo = tvgLogoMatch ? tvgLogoMatch[1] : '';
             currentItem.group = groupMatch ? groupMatch[1].trim() : 'General';
+
         } else if (line && !line.startsWith('#')) {
             currentItem.url = line;
             if (currentItem.name && currentItem.url) {
                 let gLower = currentItem.group.toLowerCase();
                 let uLower = currentItem.url.toLowerCase();
 
-                // Clasificación inteligente por tipo
+                // Clasificación precisa para que caiga en su sección correcta
                 if (gLower.includes('pelicula') || gLower.includes('vod') || gLower.includes('movie') || gLower.includes('cine') || gLower.includes('animacion') || gLower.includes('animadas') || gLower.includes('comedia') || uLower.includes('.mp4') || uLower.includes('.mkv')) {
                     currentItem.type = 'movies';
                 } else if (gLower.includes('serie') || gLower.includes('temporada') || gLower.includes('capitulo')) {
@@ -189,7 +214,7 @@ function renderMediaList(items) {
     });
 }
 
-// REPRODUCTOR LIMPIO Y SIN ALERTAS INTRUSIVAS (ESTILO DVSDFS.HTML)
+// REPRODUCTOR FLUIDO Y UNIVERSAL
 function playMedia(item) {
     const video = document.getElementById('videoPlayer');
     document.getElementById('playingName').innerText = item.name;
@@ -208,7 +233,7 @@ function playMedia(item) {
     } else {
         video.src = item.url;
         video.play().catch(e => {
-            console.warn("Reproducción directa intentada:", e);
+            console.warn("Reproducción directa:", e);
         });
     }
 }
