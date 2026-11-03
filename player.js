@@ -28,7 +28,6 @@ async function initAppSession(isAuto = false) {
     }
 }
 
-// CARGA DIRECTA Y EFECTIVA (IGUAL QUE DVSDFS)
 async function loadPlaylistDirect(url) {
     allChannels = [];
     showLoader('Descargando contenido...');
@@ -48,7 +47,6 @@ async function loadPlaylistDirect(url) {
     }
 }
 
-// ANALIZADOR UNIFICADO IDÉNTICO AL QUE SÍ REPRODUCE
 function parseM3U(content) {
     allChannels = [];
     const lines = content.replace(/\r\n/g, '\n').split('\n');
@@ -71,7 +69,6 @@ function parseM3U(content) {
                 let gLower = currentChannel.group.toLowerCase();
                 let uLower = currentChannel.url.toLowerCase();
 
-                // Clasificación flexible para las 3 secciones
                 if (gLower.includes('pelicula') || gLower.includes('vod') || gLower.includes('movie') || gLower.includes('cine') || gLower.includes('estrenos') || gLower.includes('comedia') || gLower.includes('animacion') || gLower.includes('animadas') || uLower.includes('.mp4') || uLower.includes('.mkv')) {
                     currentChannel.type = 'movies';
                 } else if (gLower.includes('serie') || gLower.includes('temporada') || gLower.includes('capitulo')) {
@@ -86,7 +83,6 @@ function parseM3U(content) {
     }
 }
 
-// Alias para mantener compatibilidad
 function parseM3UUniversal(content) {
     parseM3U(content);
 }
@@ -121,7 +117,6 @@ function renderCategories() {
     const container = document.getElementById('categoryList');
     container.innerHTML = '';
     
-    // Agregar opción "Todas las categorías" al inicio de la lista lateral
     groups.unshift('TODAS LAS CATEGORÍAS');
     document.getElementById('groupCount').innerText = groups.length - 1;
 
@@ -200,30 +195,46 @@ function renderMediaList(items) {
     });
 }
 
-// REPRODUCTOR EXACTO DE DVSDFS (DIRECTO, LIMPIO Y SIN BLOQUEOS)
+// REPRODUCTOR BLINDADO Y CORREGIDO PARA EVITAR BLOQUEOS DE STREAM
 function playMedia(item) {
     const video = document.getElementById('videoPlayer');
     document.getElementById('playingName').innerText = item.name;
     document.getElementById('currentChannelInfo').classList.remove('hidden');
 
-    if (Hls.isSupported() && item.url.includes('.m3u8')) {
-        if (hls) {
-            hls.destroy();
-        }
+    // Limpiar instancia anterior de HLS obligatoriamente
+    if (hls) {
+        hls.destroy();
+        hls = null;
+    }
+
+    // Detener reproductor actual y limpiar fuentes
+    video.pause();
+    video.removeAttribute('src');
+    video.load();
+
+    let playUrl = item.url;
+
+    // Si es un enlace HTTP en una página HTTPS, usamos un proxy de streaming para evitar bloqueo de seguridad mixto del navegador
+    if (playUrl.startsWith('http://') && window.location.protocol === 'https:') {
+        playUrl = `https://corsproxy.io/?${encodeURIComponent(item.url)}`;
+    }
+
+    if (item.url.includes('.m3u8') && Hls.isSupported()) {
         hls = new Hls();
-        hls.loadSource(item.url);
+        hls.loadSource(playUrl);
         hls.attachMedia(video);
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
-            video.play().catch(e => console.log("Reproducción iniciada", e));
+            video.play().catch(e => console.log("Play HLS error:", e));
         });
     } else {
-        if (hls) {
-            hls.destroy();
-            hls = null;
-        }
-        video.src = item.url;
-        video.play().catch(e => {
-            console.warn("Reproducción directa ejecutada:", e);
+        // Carga directa para películas y otros formatos
+        video.src = playUrl;
+        video.load();
+        video.play().catch(err => {
+            console.warn("Fallo con URL modificada, intentando enlace directo original...", err);
+            video.src = item.url;
+            video.load();
+            video.play().catch(e => console.error("Error definitivo de reproducción:", e));
         });
     }
 }
