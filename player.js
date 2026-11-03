@@ -1,4 +1,4 @@
-let allMedia = { live: [], movies: [], series: [] };
+let allChannels = [];
 let currentSection = 'live';
 let currentGroup = '';
 let hls = null;
@@ -21,105 +21,66 @@ async function initAppSession(isAuto = false) {
     }
 
     if (targetUrls.length > 0) {
-        await loadPlaylistWithProgress(targetUrls[0]);
+        await loadPlaylistDirect(targetUrls[0]);
     } else {
         hideLoader();
         alert("No se encontró ninguna URL en la columna URL1 de Google Sheets.");
     }
 }
 
-async function loadPlaylistWithProgress(url) {
-    allMedia = { live: [], movies: [], series: [] };
-    showLoader('Descargando lista M3U (0%)...');
+async function loadPlaylistDirect(url) {
+    allChannels = [];
+    showLoader('Descargando lista M3U...');
 
-    let playlistText = null;
-    const proxies = [
-        url,
-        `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-        `https://corsproxy.io/?${encodeURIComponent(url)}`
-    ];
-
-    let loaded = false;
-    for (let i = 0; i < proxies.length; i++) {
-        try {
-            showLoader(`Descargando lista (Intento ${i + 1}/${proxies.length})...`);
-            const response = await fetch(proxies[i]);
-            if (response.ok) {
-                playlistText = await response.text();
-                if (playlistText && playlistText.length > 50) {
-                    loaded = true;
-                    break;
-                }
-            }
-        } catch (e) {
-            console.warn("Proxy fallido, probando siguiente...", e);
-        }
-    }
-
-    if (loaded && playlistText) {
-        showLoader('Analizando grupos y clasificando contenido...');
-        setTimeout(() => {
-            parseExM3UProfessional(playlistText);
-            hideLoader();
-            openSection('live');
-        }, 150);
-    } else {
+    try {
+        const response = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`);
+        if (!response.ok) throw new Error('No se pudo descargar la lista M3U');
+        
+        const data = await response.text();
+        parseExM3UUniversal(data);
         hideLoader();
-        alert("No se pudo descargar la lista M3U. Revisa la URL en Google Sheets.");
+        openSection('live');
+    } catch (error) {
+        console.error(error);
+        hideLoader();
+        alert('Error al cargar la lista M3U. Comprueba que el enlace sea accesible.');
     }
 }
 
-// MOTOR PROFESIONAL DE LECTURA EXM3U
-function parseExM3UProfessional(content) {
+// LECTURA UNIVERSAL DE EXM3U (CANALES, PELÍCULAS Y SERIES)
+function parseExM3UUniversal(content) {
+    allChannels = [];
     const lines = content.replace(/\r\n/g, '\n').split('\n');
-    let currentName = '';
-    let currentLogo = '';
-    let currentGroup = 'General';
+    let currentItem = {};
 
     for (let i = 0; i < lines.length; i++) {
         let line = lines[i].trim();
-
         if (line.startsWith('#EXTINF:')) {
-            let commaIndex = line.lastIndexOf(',');
-            if (commaIndex !== -1) {
-                currentName = line.substring(commaIndex + 1).trim();
-            }
-
-            let logoMatch = line.match(/tvg-logo="([^"]*)"/i) || line.match(/logo="([^"]*)"/i);
-            currentLogo = logoMatch ? logoMatch[1] : '';
-
+            currentItem = {};
+            let tvgLogoMatch = line.match(/tvg-logo="([^"]*)"/i) || line.match(/logo="([^"]*)"/i);
             let groupMatch = line.match(/group-title="([^"]*)"/i) || line.match(/group-title='([^']*)'/i);
-            currentGroup = groupMatch ? groupMatch[1].trim() : 'General';
-
+            
+            let nameParts = line.split(',');
+            currentItem.name = nameParts[nameParts.length - 1].trim();
+            currentItem.logo = tvgLogoMatch ? tvgLogoMatch[1] : '';
+            currentItem.group = groupMatch ? groupMatch[1].trim() : 'General';
         } else if (line && !line.startsWith('#')) {
-            let mediaUrl = line;
-            if (currentName === '') currentName = 'Contenido sin nombre';
+            currentItem.url = line;
+            if (currentItem.name && currentItem.url) {
+                let gLower = currentItem.group.toLowerCase();
+                let uLower = currentItem.url.toLowerCase();
 
-            let item = {
-                name: currentName,
-                logo: currentLogo,
-                group: currentGroup,
-                url: mediaUrl
-            };
+                // Clasificación inteligente por tipo
+                if (gLower.includes('pelicula') || gLower.includes('vod') || gLower.includes('movie') || gLower.includes('cine') || gLower.includes('animacion') || gLower.includes('animadas') || gLower.includes('comedia') || uLower.includes('.mp4') || uLower.includes('.mkv')) {
+                    currentItem.type = 'movies';
+                } else if (gLower.includes('serie') || gLower.includes('temporada') || gLower.includes('capitulo')) {
+                    currentItem.type = 'series';
+                } else {
+                    currentItem.type = 'live';
+                }
 
-            let gLower = currentGroup.toLowerCase();
-            let uLower = mediaUrl.toLowerCase();
-
-            // CLASIFICACIÓN EXACTA Y RIGUROSA
-            const isMovie = gLower.includes('pelicula') || gLower.includes('vod') || gLower.includes('movie') || gLower.includes('cine') || gLower.includes('estrenos') || gLower.includes('comedia') || gLower.includes('animacion') || gLower.includes('animadas') || uLower.includes('/movie/') || uLower.includes('.mp4') || uLower.includes('.mkv') || uLower.includes('.avi');
-            const isSeries = gLower.includes('serie') || gLower.includes('temporada') || gLower.includes('capitulo') || gLower.includes('season') || uLower.includes('/series/');
-
-            if (isSeries) {
-                allMedia.series.push(item);
-            } else if (isMovie) {
-                allMedia.movies.push(item);
-            } else {
-                allMedia.live.push(item);
+                allChannels.push(currentItem);
             }
-
-            currentName = '';
-            currentLogo = '';
-            currentGroup = 'General';
         }
     }
 }
@@ -147,7 +108,7 @@ function returnToDashboard() {
 }
 
 function renderCategories() {
-    const list = allMedia[currentSection];
+    const list = allChannels.filter(item => item.type === currentSection);
     const groups = [...new Set(list.map(item => item.group))].sort();
     const container = document.getElementById('categoryList');
     container.innerHTML = '';
@@ -187,7 +148,7 @@ function renderCategories() {
 
 function filterMedia() {
     const search = document.getElementById('searchMedia').value.toLowerCase();
-    const list = allMedia[currentSection];
+    const list = allChannels.filter(item => item.type === currentSection);
 
     const filtered = list.filter(item => {
         const matchesGroup = (item.group === currentGroup);
@@ -213,8 +174,8 @@ function renderMediaList(items) {
         el.className = 'flex items-center gap-3 p-2 bg-slate-900/60 hover:bg-slate-800 border border-slate-800/80 rounded-xl cursor-pointer transition group';
         
         let logoHtml = item.logo 
-            ? `<img src="${item.logo}" class="w-9 h-9 object-cover rounded-lg bg-slate-950 p-1 border border-slate-800" onerror="this.src='https://via.placeholder.com/40?text=VOD'">`
-            : `<div class="w-9 h-9 bg-slate-950 rounded-lg flex items-center justify-center text-slate-500 border border-slate-800"><i class="fa-solid fa-film text-xs"></i></div>`;
+            ? `<img src="${item.logo}" class="w-9 h-9 object-cover rounded-lg bg-slate-950 p-1 border border-slate-800" onerror="this.src='https://via.placeholder.com/40?text=TV'">`
+            : `<div class="w-9 h-9 bg-slate-950 rounded-lg flex items-center justify-center text-slate-500 border border-slate-800"><i class="fa-solid fa-play text-xs"></i></div>`;
 
         el.onclick = () => playMedia(item);
         el.innerHTML = `
@@ -228,54 +189,27 @@ function renderMediaList(items) {
     });
 }
 
-// REPRODUCTOR UNIVERSAL BLINDADO PARA VOD Y STREAMING
-async function playMedia(item) {
+// REPRODUCTOR LIMPIO Y SIN ALERTAS INTRUSIVAS (ESTILO DVSDFS.HTML)
+function playMedia(item) {
     const video = document.getElementById('videoPlayer');
     document.getElementById('playingName').innerText = item.name;
     document.getElementById('currentChannelInfo').classList.remove('hidden');
 
-    if (hls) {
-        hls.destroy();
-        hls = null;
-    }
-
-    let mediaUrl = item.url;
-
-    // Si es un enlace HTTP en un entorno HTTPS, evitamos bloqueo de seguridad mixto usando proxy de streaming
-    if (mediaUrl.startsWith('http://') && window.location.protocol === 'https:') {
-        mediaUrl = `https://corsproxy.io/?${encodeURIComponent(mediaUrl)}`;
-    }
-
-    // Si el archivo es HLS (.m3u8) o contenedor de video moderno
-    if (item.url.includes('.m3u8') && Hls.isSupported()) {
+    if (Hls.isSupported() && item.url.includes('.m3u8')) {
+        if (hls) {
+            hls.destroy();
+        }
         hls = new Hls();
-        hls.loadSource(mediaUrl);
+        hls.loadSource(item.url);
         hls.attachMedia(video);
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
-            video.play().catch(e => console.log("Reproducción HLS iniciada:", e));
-        });
-        hls.on(Hls.Events.ERROR, (event, data) => {
-            if (data.fatal) {
-                console.warn("Fallo HLS, cambiando a reproducción directa...", data);
-                video.src = item.url;
-                video.play().catch(err => console.error("Error reproduciendo enlace directo:", err));
-            }
+            video.play().catch(e => console.log("Reproducción iniciada", e));
         });
     } else {
-        // Carga directa optimizada para películas (MP4, MKV, etc.)
-        video.src = mediaUrl;
-        video.load();
-        try {
-            await video.play();
-        } catch (err) {
-            console.warn("Error en reproducción con proxy, intentando enlace nativo...", err);
-            video.src = item.url;
-            video.load();
-            video.play().catch(e => {
-                console.error("No se pudo reproducir el archivo multimedia:", e);
-                alert("El navegador no puede decodificar este formato de película directamente.");
-            });
-        }
+        video.src = item.url;
+        video.play().catch(e => {
+            console.warn("Reproducción directa intentada:", e);
+        });
     }
 }
 
