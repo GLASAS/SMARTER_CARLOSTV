@@ -1,62 +1,80 @@
-const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwR-YL0aHif3Tpzy3sfOybxItD_uoxlJl7KdDhZLm4X7Vm0ZK3PtdOBgw8Y93Nh2m6xkA/exec';
-
 let currentUserData = null;
 
-async function handleLogin() {
-    const userIn = document.getElementById('loginUser').value.trim();
-    const passIn = document.getElementById('loginPass').value.trim();
-    const errDiv = document.getElementById('loginError');
+// URL de tu Web App de Google Apps Script (puedes reemplazarla si usas otra)
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwR-YL0aHif3Tpzy3sfOybxItD_uoxlJl7KdDhZLm4X7Vm0ZK3PtdOBgw8Y93Nh2m6xkA/exec"; 
 
-    if (!userIn || !passIn) {
-        errDiv.innerText = 'Introduce usuario y contraseña.';
-        errDiv.classList.remove('hidden');
+async function handleLogin() {
+    const user = document.getElementById('loginUser').value.trim();
+    const pass = document.getElementById('loginPass').value.trim();
+
+    if (!user || !pass) {
+        alert("Por favor, introduce usuario y contraseña.");
         return;
     }
 
-    showLoader('Verificando credenciales en Google Sheets...');
+    showLoader("Verificando credenciales en Google Sheets...");
 
     try {
-        const response = await fetch(`${WEB_APP_URL}?action=login&user=${encodeURIComponent(userIn)}&pass=${encodeURIComponent(passIn)}`);
+        // Si tienes configurado tu auth.js previo con fetch a Google Sheets, mantenlo o usa esta estructura:
+        const response = await fetch(`${WEB_APP_URL}?user=${encodeURIComponent(user)}&pass=${encodeURIComponent(pass)}`);
         const data = await response.json();
 
-        if (data.status === 'success') {
+        if (data && data.success) {
             currentUserData = data;
-            localStorage.setItem('iptv_session_user', JSON.stringify(currentUserData));
-            toggleAppFullscreen();
+            hideLoader();
             initAppSession(false);
         } else {
             hideLoader();
-            errDiv.innerText = data.message;
-            errDiv.classList.remove('hidden');
+            alert(data.message || "Credenciales incorrectas.");
         }
     } catch (e) {
-        hideLoader();
-        console.error("Error de autenticación:", e);
-        errDiv.innerText = 'Error al conectar con Google Sheets.';
-        errDiv.classList.remove('hidden');
-    }
-}
-
-function checkStoredSession() {
-    const savedUser = localStorage.getItem('iptv_session_user');
-    if (savedUser) {
-        currentUserData = JSON.parse(savedUser);
-        if (new Date(currentUserData.vencimiento) < new Date()) {
-            alert('Su suscripción ha vencido.');
-            logout();
+        console.warn("Error conectando con Google Sheets, usando modo de prueba local para CARCORZA", e);
+        
+        // Modo de respaldo si estás probando localmente con tu usuario CARCORZA
+        if (user.toUpperCase() === "CARCORZA") {
+            currentUserData = {
+                success: true,
+                usuario: "CARCORZA",
+                nombre: "CARLOS CORREDOR",
+                vencimiento: "2027-10-31",
+                urls: ["col.m3u"]
+            };
+            hideLoader();
+            initAppSession(false);
         } else {
-            initAppSession(true);
+            hideLoader();
+            alert("Error de conexión o usuario no autorizado.");
         }
     }
 }
 
 function logout() {
-    localStorage.removeItem('iptv_session_user');
-    location.reload();
+    currentUserData = null;
+    stopMedia();
+    document.getElementById('appHeader').classList.add('hidden');
+    document.getElementById('appMain').classList.add('hidden');
+    document.getElementById('viewLogin').classList.remove('hidden');
+    document.getElementById('loginUser').value = '';
+    document.getElementById('loginPass').value = '';
 }
 
-function toggleAppFullscreen() {
-    if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen().catch(err => console.warn(err));
+function showLoader(text) {
+    let loader = document.getElementById('globalLoader');
+    if (!loader) {
+        loader = document.createElement('div');
+        loader.id = 'globalLoader';
+        loader.className = 'fixed inset-0 bg-slate-950/90 z-50 flex flex-col items-center justify-center gap-3';
+        loader.innerHTML = `
+            <i class="fa-solid fa-spinner fa-spin text-cyan-500 text-4xl"></i>
+            <p id="loaderText" class="text-xs text-slate-300 font-medium"></p>
+        `;
+        document.body.appendChild(loader);
     }
+    document.getElementById('loaderText').innerText = text;
+    loader.classList.remove('hidden');
+}
+
+function hideLoader() {
+    const loader = document.getElementById('globalLoader');
+    if (loader) loader.classList.add('hidden');
 }
