@@ -103,10 +103,9 @@ function parseExM3UProfessional(content) {
             };
 
             let gLower = currentGroup.toLowerCase();
-            let nLower = currentName.toLowerCase();
             let uLower = mediaUrl.toLowerCase();
 
-            // Identificación estricta y limpia de películas y series
+            // CLASIFICACIÓN EXACTA Y RIGUROSA
             const isMovie = gLower.includes('pelicula') || gLower.includes('vod') || gLower.includes('movie') || gLower.includes('cine') || gLower.includes('estrenos') || gLower.includes('comedia') || gLower.includes('animacion') || gLower.includes('animadas') || uLower.includes('/movie/') || uLower.includes('.mp4') || uLower.includes('.mkv') || uLower.includes('.avi');
             const isSeries = gLower.includes('serie') || gLower.includes('temporada') || gLower.includes('capitulo') || gLower.includes('season') || uLower.includes('/series/');
 
@@ -229,7 +228,7 @@ function renderMediaList(items) {
     });
 }
 
-// REPRODUCTOR BLINDADO CON SOPORTE DE STREAMING Y VOD
+// REPRODUCTOR UNIVERSAL BLINDADO PARA VOD Y STREAMING
 async function playMedia(item) {
     const video = document.getElementById('videoPlayer');
     document.getElementById('playingName').innerText = item.name;
@@ -240,35 +239,42 @@ async function playMedia(item) {
         hls = null;
     }
 
-    let targetUrl = item.url;
+    let mediaUrl = item.url;
 
-    // Si el enlace de película viene en HTTP puro y la página corre en HTTPS, aplicamos un proxy ligero para evitar bloqueo mixto
-    if (targetUrl.startsWith('http://') && window.location.protocol === 'https:') {
-        targetUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+    // Si es un enlace HTTP en un entorno HTTPS, evitamos bloqueo de seguridad mixto usando proxy de streaming
+    if (mediaUrl.startsWith('http://') && window.location.protocol === 'https:') {
+        mediaUrl = `https://corsproxy.io/?${encodeURIComponent(mediaUrl)}`;
     }
 
+    // Si el archivo es HLS (.m3u8) o contenedor de video moderno
     if (item.url.includes('.m3u8') && Hls.isSupported()) {
         hls = new Hls();
-        hls.loadSource(targetUrl);
+        hls.loadSource(mediaUrl);
         hls.attachMedia(video);
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
             video.play().catch(e => console.log("Reproducción HLS iniciada:", e));
         });
         hls.on(Hls.Events.ERROR, (event, data) => {
             if (data.fatal) {
-                console.warn("Error crítico en HLS, intentando reproducción directa...", data);
+                console.warn("Fallo HLS, cambiando a reproducción directa...", data);
                 video.src = item.url;
-                video.play().catch(err => console.error("Fallo total de reproducción:", err));
+                video.play().catch(err => console.error("Error reproduciendo enlace directo:", err));
             }
         });
     } else {
-        video.src = targetUrl;
+        // Carga directa optimizada para películas (MP4, MKV, etc.)
+        video.src = mediaUrl;
+        video.load();
         try {
             await video.play();
         } catch (err) {
-            console.warn("Error con URL directa, reintentando con enlace original...", err);
+            console.warn("Error en reproducción con proxy, intentando enlace nativo...", err);
             video.src = item.url;
-            video.play().catch(e => alert("No se pudo reproducir este archivo de video. El formato podría no ser compatible con el navegador."));
+            video.load();
+            video.play().catch(e => {
+                console.error("No se pudo reproducir el archivo multimedia:", e);
+                alert("El navegador no puede decodificar este formato de película directamente.");
+            });
         }
     }
 }
