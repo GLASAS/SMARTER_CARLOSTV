@@ -28,7 +28,6 @@ async function initAppSession(isAuto = false) {
     }
 }
 
-// DESCARGA DIRECTA Y SEGURA DE LA LISTA M3U
 async function loadPlaylistDirect(url) {
     allChannels = [];
     showLoader('Descargando contenido de la lista...');
@@ -38,10 +37,10 @@ async function loadPlaylistDirect(url) {
         if (!response.ok) throw new Error('No se pudo descargar la lista M3U');
         
         const data = await response.text();
-        parseM3UUniversal(data);
+        parseM3UProfessional(data);
         hideLoader();
         
-        // ENTRAR DIRECTAMENTE AL MENÚ PRINCIPAL (DASHBOARD) TRAS CARGAR
+        // Ir directamente al menú principal (Dashboard estilo Smarters Player)
         returnToDashboard();
     } catch (error) {
         console.error(error);
@@ -50,8 +49,8 @@ async function loadPlaylistDirect(url) {
     }
 }
 
-// MOTOR DE ANÁLISIS UNIVERSAL COMPATIBLE CON CUALQUIER M3U
-function parseM3UUniversal(content) {
+// MOTOR DE CLASIFICACIÓN INTELIGENTE (DETECTA PELÍCULAS, SERIES Y TV)
+function parseM3UProfessional(content) {
     allChannels = [];
     const lines = content.replace(/\r\n/g, '\n').split('\n');
     let currentChannel = {};
@@ -72,12 +71,16 @@ function parseM3UUniversal(content) {
             if (currentChannel.name && currentChannel.url) {
                 let gLower = currentChannel.group.toLowerCase();
                 let uLower = currentChannel.url.toLowerCase();
+                let nLower = currentChannel.name.toLowerCase();
 
-                // Clasificación flexible para las secciones del menú
-                if (gLower.includes('pelicula') || gLower.includes('vod') || gLower.includes('movie') || gLower.includes('cine') || gLower.includes('estrenos') || gLower.includes('comedia') || gLower.includes('animacion') || gLower.includes('animadas') || uLower.includes('.mp4') || uLower.includes('.mkv')) {
-                    currentChannel.type = 'movies';
-                } else if (gLower.includes('serie') || gLower.includes('temporada') || gLower.includes('capitulo')) {
+                // Identificación robusta para cine, series y canales en directo
+                const isMovie = gLower.includes('pelicula') || gLower.includes('vod') || gLower.includes('movie') || gLower.includes('cine') || gLower.includes('estrenos') || gLower.includes('comedia') || gLower.includes('animacion') || gLower.includes('animadas') || gLower.includes('infantiles') || uLower.includes('/movie/') || uLower.includes('.mp4') || uLower.includes('.mkv') || nLower.includes('200') || nLower.includes('199');
+                const isSeries = gLower.includes('serie') || gLower.includes('temporada') || gLower.includes('capitulo') || gLower.includes('season') || uLower.includes('/series/');
+
+                if (isSeries) {
                     currentChannel.type = 'series';
+                } else if (isMovie) {
+                    currentChannel.type = 'movies';
                 } else {
                     currentChannel.type = 'live';
                 }
@@ -94,7 +97,7 @@ function openSection(section) {
     document.getElementById('viewContent').classList.remove('hidden');
     document.getElementById('btnHome').classList.remove('hidden');
 
-    const titles = { live: 'Canales en Vivo', movies: 'Películas VOD', series: 'Series TV' };
+    const titles = { live: 'TV en Directo', movies: 'Películas (Cine)', series: 'Series TV' };
     document.getElementById('sidebarTitle').innerText = titles[section];
 
     document.getElementById('searchMedia').value = '';
@@ -200,7 +203,7 @@ function renderMediaList(items) {
     });
 }
 
-// REPRODUCTOR UNIVERSAL LIMPIO Y DIRECTO
+// REPRODUCTOR UNIVERSAL BLINDADO
 function playMedia(item) {
     const video = document.getElementById('videoPlayer');
     document.getElementById('playingName').innerText = item.name;
