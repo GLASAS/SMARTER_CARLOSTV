@@ -2,185 +2,114 @@
 <html lang="es" class="dark">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">
-    <title>IPTV Smarters Pro V1.2001 - Cloud Edition</title>
-    
-    <!-- FAVICON E ICONOS -->
-    <link rel="icon" type="image/jpeg" href="CarlostvLite.jpg">
-    <link rel="apple-touch-icon" href="CarlostvLite.jpg">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="mobile-web-app-capable" content="yes">
-
-    <!-- Estilos Modularizados -->
-    <link rel="stylesheet" href="style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IPTV Smarters Pro V1.1</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- HLS.js para reproducción m3u8 -->
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <!-- FontAwesome para iconos -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
 </head>
-<body class="bg-[#070b14] text-slate-100 flex flex-col select-none font-sans overflow-hidden w-screen h-screen">
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col">
 
-    <!-- AVISO DE GIRO HORIZONTAL PARA MÓVILES Y SMART TV -->
-    <div id="rotateWarning" class="fixed inset-0 bg-[#05080f] z-[99999] hidden flex-col items-center justify-center p-6 text-center space-y-4">
-        <div class="w-16 h-16 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin"></div>
-        <h2 class="text-white font-bold text-lg">Por favor, gira tu dispositivo</h2>
-        <p class="text-xs text-slate-400 max-w-xs">Esta aplicación está diseñada para disfrutarse en posición horizontal (Landscape).</p>
-    </div>
-
-    <!-- PANTALLA DE CARGA CON PROGRESO -->
-    <div id="globalLoader" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[100] flex flex-col items-center justify-center space-y-4 hidden">
-        <div class="relative flex items-center justify-center">
-            <div class="w-16 h-16 border-4 border-cyan-500/20 border-t-cyan-500 rounded-full animate-spin"></div>
-            <img src="CarlostvLite.jpg" class="w-8 h-8 object-cover rounded-full absolute shadow-lg">
-        </div>
-        <div class="text-center space-y-1">
-            <h3 class="text-sm font-bold text-white tracking-widest uppercase">Cargando contenido IPTV...</h3>
-            <p class="text-xs text-cyan-400 font-semibold" id="loaderText">Sincronizando ExM3U V1.2002</p>
-        </div>
-    </div>
-
-    <!-- PANTALLA DE LOGIN CON DISEÑO ORIGINAL Y V1.2003 -->
-    <div id="viewLogin" class="fixed inset-0 bg-[#05080f] flex items-center justify-center z-50 p-4">
-        <div class="bg-slate-900/90 border border-slate-800/80 p-8 rounded-3xl shadow-2xl w-full max-w-md backdrop-blur-xl space-y-6">
-            <div class="text-center space-y-3">
-                <div class="inline-flex shadow-xl shadow-cyan-500/20 rounded-2xl overflow-hidden border border-cyan-500/30">
-                    <img src="CarlostvLite.jpg" class="w-16 h-16 object-cover">
-                </div>
-                <div class="flex items-center justify-center gap-2">
-                    <h1 class="text-xl font-black tracking-wider uppercase text-white">IPTV <span class="text-cyan-400">Smarters Pro</span></h1>
-                    <span class="text-[10px] bg-cyan-500/20 text-cyan-300 px-2 py-0.5 rounded-full font-bold border border-cyan-500/30">V1.0855</span>
-                </div>
+    <!-- Vista Login -->
+    <div id="viewLogin" class="fixed inset-0 bg-slate-950 z-50 flex flex-col items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 p-8 rounded-2xl w-full max-w-md space-y-6 shadow-2xl">
+            <div class="text-center space-y-2">
+                <h1 class="text-2xl font-bold tracking-wide">IPTV <span class="text-cyan-500">SMARTERS PRO</span></h1>
                 <p class="text-xs text-slate-400">Introduce tus credenciales autorizadas</p>
             </div>
-
             <div class="space-y-4">
                 <div>
-                    <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Usuario</label>
-                    <input type="text" id="loginUser" placeholder="Ingrese Usuario" 
-                        class="w-full bg-slate-950 border border-slate-800 px-4 py-3 rounded-xl text-xs text-white focus:outline-none focus:border-cyan-500 transition shadow-inner">
+                    <label class="text-xs text-slate-400 block mb-1">Usuario</label>
+                    <input type="text" id="loginUser" placeholder="Ingrese Usuario" class="w-full bg-slate-950 border border-slate-800 px-4 py-2.5 rounded-xl text-sm focus:outline-none focus:border-cyan-500">
                 </div>
                 <div>
-                    <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Contraseña</label>
-                    <input type="password" id="loginPass" placeholder="••••••••" 
-                        class="w-full bg-slate-950 border border-slate-800 px-4 py-3 rounded-xl text-xs text-white focus:outline-none focus:border-cyan-500 transition shadow-inner">
+                    <label class="text-xs text-slate-400 block mb-1">Contraseña</label>
+                    <input type="password" id="loginPass" placeholder="Ingrese Contraseña" class="w-full bg-slate-950 border border-slate-800 px-4 py-2.5 rounded-xl text-sm focus:outline-none focus:border-cyan-500">
                 </div>
-                <button onclick="handleLogin()" class="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white py-3.5 rounded-xl text-xs font-bold transition shadow-lg shadow-cyan-600/30">
-                    <i class="fa-solid fa-right-to-bracket mr-2"></i> Iniciar Sesión
+                <button onclick="handleLogin()" class="w-full bg-cyan-600 hover:bg-cyan-500 py-3 rounded-xl text-sm font-semibold transition shadow-lg shadow-cyan-600/30">
+                    Iniciar Sesión
                 </button>
             </div>
-            <div id="loginError" class="text-center text-xs text-rose-400 font-semibold hidden"></div>
         </div>
     </div>
 
-    <!-- CABECERA (APP) CON VERSIÓN V1.0724 -->
-    <header class="bg-slate-900/90 backdrop-blur border-b border-slate-800 px-6 py-2.5 flex justify-between items-center z-30 shadow-lg hidden h-[10vh]" id="appHeader">
+    <!-- Header Principal -->
+    <header id="appHeader" class="bg-slate-900 border-b border-slate-800 p-4 flex justify-between items-center hidden">
         <div class="flex items-center gap-3">
-            <div class="shadow-lg shadow-cyan-500/20 rounded-xl overflow-hidden border border-cyan-500/30">
-                <img src="CarlostvLite.jpg" class="w-9 h-9 object-cover">
-            </div>
-            <div>
-                <div class="flex items-center gap-2">
-                    <h1 class="text-sm font-extrabold tracking-wide uppercase text-white">IPTV <span class="text-cyan-400">Smarters Pro</span></h1>
-                    <span class="text-[9px] bg-cyan-500/20 text-cyan-300 px-1.5 py-0.2 rounded-full font-bold">V1.0855</span>
-                </div>
-                <p class="text-[10px] text-slate-400" id="headerUserInfo">Usuario</p>
-            </div>
-        </div>
-        <div class="flex items-center gap-3">
-            <span class="text-xs bg-slate-800/80 px-3 py-1 rounded-xl text-slate-300 border border-slate-700/50" id="headerExp">Vence: --</span>
-            <button onclick="returnToDashboard()" class="bg-slate-800 hover:bg-slate-700 text-white px-3 py-1 rounded-xl text-xs font-semibold transition border border-slate-700 flex items-center gap-1.5 hidden" id="btnHome">
+            <button id="btnHome" onclick="returnToDashboard()" class="hidden bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg text-xs transition flex items-center gap-2">
                 <i class="fa-solid fa-house"></i> Menú
             </button>
-            <button onclick="toggleAppFullscreen()" class="bg-cyan-600/20 hover:bg-cyan-600 text-cyan-300 hover:text-white px-3 py-1 rounded-xl text-xs font-semibold transition border border-cyan-500/30">
-                <i class="fa-solid fa-expand"></i>
-            </button>
-            <button onclick="logout()" class="bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white px-3 py-1 rounded-xl text-xs font-semibold transition border border-rose-500/30">
-                <i class="fa-solid fa-power-off mr-1"></i> Salir
+            <span id="headerUserInfo" class="text-xs text-slate-300 font-medium">Usuario: --</span>
+        </div>
+        <div class="flex items-center gap-4">
+            <span id="headerExp" class="text-xs text-cyan-400">Vence: --</span>
+            <button onclick="logout()" class="bg-red-600/20 text-red-400 hover:bg-red-600 hover:text-white px-3 py-1.5 rounded-lg text-xs transition flex items-center gap-1.5">
+                <i class="fa-solid fa-power-off"></i> Salir
             </button>
         </div>
     </header>
 
-    <!-- CONTENEDOR DE VISTAS PRINCIPALES -->
-    <main class="flex-1 relative flex flex-col overflow-hidden hidden h-[90vh]" id="appMain">
+    <!-- Main Content -->
+    <main id="appMain" class="flex-1 flex flex-col overflow-hidden hidden">
         
-        <!-- DASHBOARD (SECCIONES) -->
-        <div id="viewDashboard" class="flex-1 flex flex-col items-center justify-center p-6 bg-gradient-to-b from-[#0b132b] to-[#070b14] overflow-y-auto">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-5 max-w-4xl w-full">
-                <button onclick="openSection('live')" class="group relative bg-gradient-to-br from-emerald-600 to-teal-700 p-6 rounded-3xl shadow-2xl flex flex-col items-center justify-center gap-3 border border-emerald-400/20 hover:scale-105 transition">
-                    <div class="bg-emerald-900/50 p-4 rounded-2xl"><i class="fa-solid fa-tv text-3xl text-white"></i></div>
-                    <div class="text-center"><h3 class="text-base font-black text-white">LIVE TV</h3><p class="text-[11px] text-emerald-200">Canales en directo</p></div>
-                </button>
-                <button onclick="openSection('movies')" class="group relative bg-gradient-to-br from-rose-600 to-pink-700 p-6 rounded-3xl shadow-2xl flex flex-col items-center justify-center gap-3 border border-rose-400/20 hover:scale-105 transition">
-                    <div class="bg-rose-900/50 p-4 rounded-2xl"><i class="fa-solid fa-film text-3xl text-white"></i></div>
-                    <div class="text-center"><h3 class="text-base font-black text-white">MOVIES</h3><p class="text-[11px] text-rose-200">Cine y VOD</p></div>
-                </button>
-                <button onclick="openSection('series')" class="group relative bg-gradient-to-br from-purple-600 to-indigo-700 p-6 rounded-3xl shadow-2xl flex flex-col items-center justify-center gap-3 border border-purple-400/20 hover:scale-105 transition">
-                    <div class="bg-purple-900/50 p-4 rounded-2xl"><i class="fa-solid fa-clapperboard text-3xl text-white"></i></div>
-                    <div class="text-center"><h3 class="text-base font-black text-white">SERIES</h3><p class="text-[11px] text-purple-200">Temporadas y capítulos</p></div>
-                </button>
+        <!-- Dashboard Principal (Menú Estilo Smarters) -->
+        <div id="viewDashboard" class="flex-1 flex flex-col items-center justify-center p-6 gap-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-5xl">
+                <div onclick="openSection('live')" class="bg-gradient-to-br from-cyan-600 to-blue-700 p-8 rounded-2xl cursor-pointer hover:scale-105 transition shadow-xl flex flex-col items-center text-center gap-3">
+                    <i class="fa-solid fa-tv text-4xl text-white"></i>
+                    <h2 class="text-lg font-bold text-white">TV EN DIRECTO</h2>
+                    <p class="text-xs text-cyan-100">Canales en directo</p>
+                </div>
+                <div onclick="openSection('movies')" class="bg-gradient-to-br from-rose-600 to-red-700 p-8 rounded-2xl cursor-pointer hover:scale-105 transition shadow-xl flex flex-col items-center text-center gap-3">
+                    <i class="fa-solid fa-film text-4xl text-white"></i>
+                    <h2 class="text-lg font-bold text-white">CINE</h2>
+                    <p class="text-xs text-rose-100">Cine y VOD</p>
+                </div>
+                <div onclick="openSection('series')" class="bg-gradient-to-br from-purple-600 to-indigo-700 p-8 rounded-2xl cursor-pointer hover:scale-105 transition shadow-xl flex flex-col items-center text-center gap-3">
+                    <i class="fa-solid fa-clapperboard text-4xl text-white"></i>
+                    <h2 class="text-lg font-bold text-white">SERIES</h2>
+                    <p class="text-xs text-purple-100">Temporadas y capítulos</p>
+                </div>
             </div>
         </div>
 
-        <!-- VISTA DE CONTENIDO, CATEGORÍAS Y REPRODUCTOR -->
-        <div id="viewContent" class="flex-1 flex overflow-hidden hidden h-full">
-            <!-- Panel de Categorías / Grupos -->
-            <aside class="w-72 bg-slate-900 border-r border-slate-800 flex flex-col h-full">
-                <div class="p-3 border-b border-slate-800 flex items-center justify-between">
-                    <h3 id="sidebarTitle" class="text-xs font-extrabold uppercase text-cyan-400">Categorías</h3>
-                    <span id="groupCount" class="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded-full font-semibold">0</span>
+        <!-- Vista de Contenido y Reproductor -->
+        <div id="viewContent" class="flex-1 flex flex-col lg:flex-row overflow-hidden hidden">
+            <!-- Sección Video -->
+            <section class="flex-1 bg-black flex flex-col justify-center items-center relative min-h-[300px]">
+                <video id="videoPlayer" controls autoplay class="w-full h-full max-h-[75vh] object-contain"></video>
+                
+                <!-- Botones de Control Manual (Play, Pause, Stop) -->
+                <div class="absolute top-4 left-4 flex gap-2 z-20">
+                    <button onclick="manualPlay()" class="bg-green-600/80 hover:bg-green-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold backdrop-blur transition shadow"><i class="fa-solid fa-play"></i> Play</button>
+                    <button onclick="manualPause()" class="bg-yellow-600/80 hover:bg-yellow-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold backdrop-blur transition shadow"><i class="fa-solid fa-pause"></i> Pause</button>
+                    <button onclick="stopMedia()" class="bg-red-600/80 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold backdrop-blur transition shadow"><i class="fa-solid fa-stop"></i> Stop</button>
                 </div>
-                <div id="categoryList" class="flex-1 overflow-y-auto no-scrollbar p-2 space-y-1"></div>
-            </aside>
 
-            <!-- Panel de Elementos (Canales / Películas / Series) -->
-            <div class="w-72 bg-slate-950 border-r border-slate-800 flex flex-col h-full">
-                <div class="p-3 border-b border-slate-800 space-y-2">
-                    <div class="flex items-center justify-between">
-                        <h3 class="text-xs font-extrabold uppercase text-white">Elementos</h3>
-                        <span id="itemCount" class="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded-full font-semibold">0</span>
-                    </div>
-                    <input type="text" id="searchMedia" placeholder="Buscar..." oninput="filterMedia()"
-                        class="w-full bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-lg text-xs focus:outline-none focus:border-cyan-500 text-white">
-                </div>
-                <div id="mediaList" class="flex-1 overflow-y-auto no-scrollbar p-2 space-y-1"></div>
-            </div>
-
-            <!-- Pantalla del Reproductor de Video -->
-            <section class="flex-1 bg-black flex flex-col justify-center items-center relative h-full">
-                <video id="videoPlayer" controls autoplay class="w-full h-full object-contain"></video>
-                <div class="absolute top-3 right-3 flex items-center gap-2 bg-slate-900/85 px-3 py-1.5 rounded-xl border border-slate-700 z-20 shadow-lg">
-                    <button onclick="skipTime(-10)" class="bg-slate-800 hover:bg-slate-700 text-white w-7 h-7 rounded-lg text-xs transition"><i class="fa-solid fa-backward-step"></i></button>
-                    <button onclick="skipTime(10)" class="bg-slate-800 hover:bg-slate-700 text-white w-7 h-7 rounded-lg text-xs transition"><i class="fa-solid fa-forward-step"></i></button>
-                    <button onclick="toggleFullscreen()" class="bg-cyan-600 hover:bg-cyan-500 text-white w-7 h-7 rounded-lg text-xs transition"><i class="fa-solid fa-expand"></i></button>
-                </div>
-                <div id="currentChannelInfo" class="absolute bottom-3 left-3 bg-slate-900/85 px-3 py-1.5 rounded-xl border border-slate-700 text-xs hidden z-20 shadow-lg">
-                    <span class="text-cyan-400 font-semibold" id="playingName">Selecciona contenido</span>
+                <div id="currentChannelInfo" class="absolute bottom-4 left-4 bg-slate-900/90 backdrop-blur px-4 py-2 rounded-lg border border-slate-700 text-sm hidden z-20">
+                    <span class="text-cyan-400 font-semibold" id="playingName">Selecciona un elemento</span>
                 </div>
             </section>
+
+            <!-- Sidebar / Listas -->
+            <aside class="w-full lg:w-96 bg-slate-900 border-l border-slate-800 flex flex-col h-[50vh] lg:h-auto">
+                <div class="p-4 border-b border-slate-800 space-y-3">
+                    <h3 id="sidebarTitle" class="text-sm font-bold text-cyan-400 uppercase tracking-wide">Categorías</h3>
+                    <input type="text" id="searchMedia" placeholder="Buscar..." oninput="filterMedia()"
+                        class="w-full bg-slate-950 border border-slate-700 px-3 py-2 rounded-lg text-xs focus:outline-none focus:border-cyan-500">
+                </div>
+                <div id="categoryList" class="p-2 space-y-1 border-b border-slate-800 max-h-48 overflow-y-auto"></div>
+                <div id="mediaList" class="flex-1 overflow-y-auto p-2 space-y-1"></div>
+            </aside>
         </div>
     </main>
 
-    <div class="flex gap-2 my-2">
-    <button onclick="manualPlay()" class="bg-green-600 hover:bg-green-500 px-3 py-1.5 rounded text-xs text-white"><i class="fa-solid fa-play"></i> Play</button>
-    <button onclick="manualPause()" class="bg-yellow-600 hover:bg-yellow-500 px-3 py-1.5 rounded text-xs text-white"><i class="fa-solid fa-pause"></i> Pause</button>
-    <button onclick="stopMedia()" class="bg-red-600 hover:bg-red-500 px-3 py-1.5 rounded text-xs text-white"><i class="fa-solid fa-stop"></i> Stop</button>
-    </div>
-
-    
-    <!-- Scripts de la Aplicación -->
+    <!-- Scripts de la aplicación -->
     <script src="auth.js"></script>
     <script src="player.js"></script>
-    <script>
-        window.onload = () => {
-            checkStoredSession();
-        };
-        function showLoader(text) {
-            document.getElementById('loaderText').innerText = text;
-            document.getElementById('globalLoader').classList.remove('hidden');
-        }
-        function hideLoader() {
-            document.getElementById('globalLoader').classList.add('hidden');
-        }
-    </script>
 </body>
 </html>
