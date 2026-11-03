@@ -1,10 +1,10 @@
 let allChannels = [];
 let currentSection = 'live';
-let currentGroup = '';
+let currentGroup = 'ALL';
 let hls = null;
 
 async function initAppSession(isAuto = false) {
-    if (!isAuto) showLoader('Sincronizando credenciales y lista...');
+    if (!isAuto) showLoader('Sincronizando sesión y lista M3U...');
     
     document.getElementById('viewLogin').classList.add('hidden');
     document.getElementById('appHeader').classList.remove('hidden');
@@ -21,93 +21,74 @@ async function initAppSession(isAuto = false) {
     }
 
     if (targetUrls.length > 0) {
-        // Limpiamos la URL de espacios o saltos de línea accidentales
-        let cleanUrl = targetUrls[0].trim();
-        await loadPlaylistRobust(cleanUrl);
+        await loadPlaylistDirect(targetUrls[0].trim());
     } else {
         hideLoader();
         alert("No se encontró ninguna URL en la columna URL1 de Google Sheets.");
     }
 }
 
-// SISTEMA ROBUSTO DE DESCARGA CON MÚLTIPLES PROXIES Y REINTENTO
-async function loadPlaylistRobust(url) {
+// CARGA DIRECTA Y EFECTIVA (IGUAL QUE DVSDFS)
+async function loadPlaylistDirect(url) {
     allChannels = [];
-    showLoader('Descargando lista M3U desde la nube...');
+    showLoader('Descargando contenido...');
 
-    let playlistText = null;
-    const downloadEndpoints = [
-        `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-        `https://corsproxy.io/?${encodeURIComponent(url)}`,
-        url // Intento directo por si el servidor permite CORS
-    ];
-
-    for (let i = 0; i < downloadEndpoints.length; i++) {
-        try {
-            showLoader(`Conectando (Intento ${i + 1}/${downloadEndpoints.length})...`);
-            const response = await fetch(downloadEndpoints[i]);
-            if (response.ok) {
-                playlistText = await response.text();
-                if (playlistText && playlistText.length > 50) {
-                    break;
-                }
-            }
-        } catch (e) {
-            console.warn(`Intento ${i + 1} fallido, probando siguiente...`, e);
-        }
-    }
-
-    if (playlistText && playlistText.length > 50) {
-        showLoader('Procesando canales y películas VOD...');
-        setTimeout(() => {
-            parseExM3UPerfect(playlistText);
-            hideLoader();
-            openSection('live');
-        }, 100);
-    } else {
+    try {
+        const response = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`);
+        if (!response.ok) throw new Error('No se pudo descargar la lista M3U');
+        
+        const data = await response.text();
+        parseM3UUniversal(data);
         hideLoader();
-        alert("Error al cargar la lista M3U. Comprueba que el enlace en Google Sheets sea accesible y público.");
+        openSection('live');
+    } catch (error) {
+        console.error(error);
+        hideLoader();
+        alert('Error al cargar la lista M3U. Comprueba que el enlace sea accesible.');
     }
 }
 
-// LÁSER DE CLASIFICACIÓN EXM3U PERFECTO (CANALES, PELÍCULAS Y SERIES)
-function parseExM3UPerfect(content) {
+// ANALIZADOR UNIFICADO IDÉNTICO AL QUE SÍ REPRODUCE
+function parseM3U(content) {
     allChannels = [];
     const lines = content.replace(/\r\n/g, '\n').split('\n');
-    let currentItem = {};
+    let currentChannel = {};
 
     for (let i = 0; i < lines.length; i++) {
         let line = lines[i].trim();
-
         if (line.startsWith('#EXTINF:')) {
-            currentItem = {};
+            currentChannel = {};
             let tvgLogoMatch = line.match(/tvg-logo="([^"]*)"/i) || line.match(/logo="([^"]*)"/i);
             let groupMatch = line.match(/group-title="([^"]*)"/i) || line.match(/group-title='([^']*)'/i);
             
             let nameParts = line.split(',');
-            currentItem.name = nameParts[nameParts.length - 1].trim();
-            currentItem.logo = tvgLogoMatch ? tvgLogoMatch[1] : '';
-            currentItem.group = groupMatch ? groupMatch[1].trim() : 'General';
-
+            currentChannel.name = nameParts[nameParts.length - 1].trim();
+            currentChannel.logo = tvgLogoMatch ? tvgLogoMatch[1] : '';
+            currentChannel.group = groupMatch ? groupMatch[1].trim() : 'General';
         } else if (line && !line.startsWith('#')) {
-            currentItem.url = line;
-            if (currentItem.name && currentItem.url) {
-                let gLower = currentItem.group.toLowerCase();
-                let uLower = currentItem.url.toLowerCase();
+            currentChannel.url = line;
+            if (currentChannel.name && currentChannel.url) {
+                let gLower = currentChannel.group.toLowerCase();
+                let uLower = currentChannel.url.toLowerCase();
 
-                // Clasificación precisa para que caiga en su sección correcta
-                if (gLower.includes('pelicula') || gLower.includes('vod') || gLower.includes('movie') || gLower.includes('cine') || gLower.includes('animacion') || gLower.includes('animadas') || gLower.includes('comedia') || uLower.includes('.mp4') || uLower.includes('.mkv')) {
-                    currentItem.type = 'movies';
+                // Clasificación flexible para las 3 secciones
+                if (gLower.includes('pelicula') || gLower.includes('vod') || gLower.includes('movie') || gLower.includes('cine') || gLower.includes('estrenos') || gLower.includes('comedia') || gLower.includes('animacion') || gLower.includes('animadas') || uLower.includes('.mp4') || uLower.includes('.mkv')) {
+                    currentChannel.type = 'movies';
                 } else if (gLower.includes('serie') || gLower.includes('temporada') || gLower.includes('capitulo')) {
-                    currentItem.type = 'series';
+                    currentChannel.type = 'series';
                 } else {
-                    currentItem.type = 'live';
+                    currentChannel.type = 'live';
                 }
 
-                allChannels.push(currentItem);
+                allChannels.push(currentChannel);
             }
         }
     }
+}
+
+// Alias para mantener compatibilidad
+function parseM3UUniversal(content) {
+    parseM3U(content);
 }
 
 function openSection(section) {
@@ -120,6 +101,7 @@ function openSection(section) {
     document.getElementById('sidebarTitle').innerText = titles[section];
 
     document.getElementById('searchMedia').value = '';
+    currentGroup = 'ALL';
     renderCategories();
 }
 
@@ -134,24 +116,28 @@ function returnToDashboard() {
 
 function renderCategories() {
     const list = allChannels.filter(item => item.type === currentSection);
-    const groups = [...new Set(list.map(item => item.group))].sort();
+    let groups = [...new Set(list.map(item => item.group))].sort();
+    
     const container = document.getElementById('categoryList');
     container.innerHTML = '';
-    document.getElementById('groupCount').innerText = groups.length;
+    
+    // Agregar opción "Todas las categorías" al inicio de la lista lateral
+    groups.unshift('TODAS LAS CATEGORÍAS');
+    document.getElementById('groupCount').innerText = groups.length - 1;
 
-    if (groups.length === 0) {
-        container.innerHTML = `<div class="text-center py-8 text-slate-500 text-xs">No hay categorías en esta sección</div>`;
+    if (groups.length <= 1) {
+        container.innerHTML = `<div class="text-center py-8 text-slate-500 text-xs">No hay categorías</div>`;
         document.getElementById('mediaList').innerHTML = `<div class="text-center py-16 text-slate-500 text-xs">No hay elementos</div>`;
         document.getElementById('itemCount').innerText = '0';
         return;
     }
 
-    if (!groups.includes(currentGroup)) {
+    if (currentGroup === 'ALL' || !groups.includes(currentGroup)) {
         currentGroup = groups[0];
     }
 
     groups.forEach(group => {
-        const count = list.filter(item => item.group === group).length;
+        let count = group === 'TODAS LAS CATEGORÍAS' ? list.length : list.filter(item => item.group === group).length;
         const el = document.createElement('div');
         el.className = `flex items-center justify-between p-2.5 rounded-xl cursor-pointer text-xs font-semibold transition ${group === currentGroup ? 'bg-cyan-600 text-white shadow-md' : 'text-slate-300 hover:bg-slate-800'}`;
         
@@ -176,7 +162,7 @@ function filterMedia() {
     const list = allChannels.filter(item => item.type === currentSection);
 
     const filtered = list.filter(item => {
-        const matchesGroup = (item.group === currentGroup);
+        const matchesGroup = (currentGroup === 'TODAS LAS CATEGORÍAS' || item.group === currentGroup);
         const matchesSearch = item.name.toLowerCase().includes(search);
         return matchesGroup && matchesSearch;
     });
@@ -199,7 +185,7 @@ function renderMediaList(items) {
         el.className = 'flex items-center gap-3 p-2 bg-slate-900/60 hover:bg-slate-800 border border-slate-800/80 rounded-xl cursor-pointer transition group';
         
         let logoHtml = item.logo 
-            ? `<img src="${item.logo}" class="w-9 h-9 object-cover rounded-lg bg-slate-950 p-1 border border-slate-800" onerror="this.src='https://via.placeholder.com/40?text=TV'">`
+            ? `<img src="${item.logo}" class="w-9 h-9 object-cover rounded-lg bg-slate-950 p-1 border border-slate-800" onerror="this.src='https://via.placeholder.com/40?text=VOD'">`
             : `<div class="w-9 h-9 bg-slate-950 rounded-lg flex items-center justify-center text-slate-500 border border-slate-800"><i class="fa-solid fa-play text-xs"></i></div>`;
 
         el.onclick = () => playMedia(item);
@@ -214,7 +200,7 @@ function renderMediaList(items) {
     });
 }
 
-// REPRODUCTOR FLUIDO Y UNIVERSAL
+// REPRODUCTOR EXACTO DE DVSDFS (DIRECTO, LIMPIO Y SIN BLOQUEOS)
 function playMedia(item) {
     const video = document.getElementById('videoPlayer');
     document.getElementById('playingName').innerText = item.name;
@@ -231,9 +217,13 @@ function playMedia(item) {
             video.play().catch(e => console.log("Reproducción iniciada", e));
         });
     } else {
+        if (hls) {
+            hls.destroy();
+            hls = null;
+        }
         video.src = item.url;
         video.play().catch(e => {
-            console.warn("Reproducción directa:", e);
+            console.warn("Reproducción directa ejecutada:", e);
         });
     }
 }
