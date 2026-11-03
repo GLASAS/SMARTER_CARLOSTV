@@ -110,12 +110,7 @@ function returnToDashboard() {
     document.getElementById('viewDashboard').classList.remove('hidden');
     document.getElementById('btnHome').classList.add('hidden');
 
-    const video = document.getElementById('videoPlayer');
-    if (video) { 
-        video.pause(); 
-        video.removeAttribute('src');
-        video.load(); 
-    }
+    stopMedia();
 }
 
 function renderCategories() {
@@ -203,13 +198,11 @@ function renderMediaList(items) {
     });
 }
 
-// REPRODUCTOR BLINDADO CON DIAGNÓSTICO DE STREAM
+// REPRODUCTOR CON CONTROLES MANUALES (PLAY, PAUSE, STOP)
 function playMedia(item) {
     const video = document.getElementById('videoPlayer');
     document.getElementById('playingName').innerText = item.name;
     document.getElementById('currentChannelInfo').classList.remove('hidden');
-
-    console.log("Reproduciendo elemento:", item.name, "URL:", item.url);
 
     if (hls) {
         hls.destroy();
@@ -222,7 +215,6 @@ function playMedia(item) {
 
     let mediaUrl = item.url;
 
-    // Si el enlace es relativo (ej. nombre de archivo local), aseguramos que apunte correctamente al repositorio
     if (!mediaUrl.startsWith('http://') && !mediaUrl.startsWith('https://') && !mediaUrl.startsWith('blob:')) {
         mediaUrl = window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '/') + mediaUrl;
     }
@@ -236,7 +228,7 @@ function playMedia(item) {
         hls.loadSource(mediaUrl);
         hls.attachMedia(video);
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
-            video.play().catch(e => console.log("Play HLS error:", e));
+            video.play().catch(e => console.log("Clic manual requerido para reproducir HLS:", e));
         });
         hls.on(Hls.Events.ERROR, (event, data) => {
             if (data.fatal) {
@@ -254,20 +246,49 @@ function fallbackDirectPlay(urlToTry, videoElement, originalUrl = null) {
     videoElement.src = urlToTry;
     videoElement.load();
     videoElement.play().catch(err => {
-        console.warn("Fallo en reproducción, intentando fuente original:", err);
+        console.warn("Fallo con URL proxy, intentando enlace directo...", err);
         if (originalUrl && urlToTry !== originalUrl) {
             videoElement.src = originalUrl;
             videoElement.load();
             videoElement.play().catch(e => {
-                console.error("Error definitivo al reproducir el medio. Verifica que el enlace del video sea válido y accesible:", e);
+                console.log("Esperando acción manual de reproducción en el reproductor.");
             });
         }
     });
 }
 
+// FUNCIONES DE CONTROL MANUAL (PLAY, PAUSE, STOP)
+function manualPlay() {
+    const video = document.getElementById('videoPlayer');
+    if (video) {
+        video.play().catch(e => alert("Presiona el botón de reproducción nativo del video para iniciar."));
+    }
+}
+
+function manualPause() {
+    const video = document.getElementById('videoPlayer');
+    if (video) {
+        video.pause();
+    }
+}
+
+function stopMedia() {
+    const video = document.getElementById('videoPlayer');
+    if (video) {
+        video.pause();
+        video.removeAttribute('src');
+        video.load();
+    }
+    if (hls) {
+        hls.destroy();
+        hls = null;
+    }
+    document.getElementById('currentChannelInfo').classList.add('hidden');
+}
+
 function skipTime(seconds) {
     const video = document.getElementById('videoPlayer');
-    if (video) video.requestFullscreen ? video.requestFullscreen() : null; // simplified
+    if (video) video.currentTime += seconds;
 }
 
 function toggleFullscreen() {
