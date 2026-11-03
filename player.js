@@ -20,56 +20,42 @@ async function initAppSession(isAuto = false) {
         targetUrls = [currentUserData.urls];
     }
 
-    if (targetUrls.length > 0) {
-        await loadPlaylistRobust(targetUrls[0].trim());
-    } else {
-        hideLoader();
-        alert("No se encontró ninguna URL en la columna URL1 de Google Sheets.");
-    }
+    // Si la celda de Google Sheets está vacía o apunta al archivo, usamos el col.m3u local del repositorio por defecto
+    let playlistPath = (targetUrls.length > 0 && targetUrls[0].trim() !== '') ? targetUrls[0].trim() : 'col.m3u';
+
+    await loadLocalPlaylist(playlistPath);
 }
 
-// DESCARGA ROBUSTA CON MÚLTIPLES PROXIES TRANSPARENTES
-async function loadPlaylistRobust(url) {
+// CARGA DIRECTA Y OPTIMIZADA PARA LISTAS LOCALES O REMOTAS
+async function loadLocalPlaylist(url) {
     allChannels = [];
-    showLoader('Descargando lista M3U...');
+    showLoader('Leyendo lista M3U desde el repositorio...');
 
-    let playlistText = null;
-    const proxies = [
-        `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-        `https://corsproxy.io/?${encodeURIComponent(url)}`,
-        url
-    ];
-
-    let success = false;
-    for (let i = 0; i < proxies.length; i++) {
+    try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error('No se pudo acceder al archivo M3U');
+        
+        const data = await response.text();
+        parseM3UUniversal(data);
+        hideLoader();
+        returnToDashboard();
+    } catch (error) {
+        console.warn("Fallo lectura directa, intentando con proxy...", error);
         try {
-            const response = await fetch(proxies[i]);
-            if (response.ok) {
-                playlistText = await response.text();
-                if (playlistText && playlistText.length > 20) {
-                    success = true;
-                    break;
-                }
-            }
-        } catch (e) {
-            console.warn(`Intento de descarga ${i + 1} fallido, probando siguiente...`, e);
-        }
-    }
-
-    if (success && playlistText) {
-        showLoader('Analizando canales y películas VOD...');
-        setTimeout(() => {
-            parseM3UUniversal(playlistText);
+            const fallbackResponse = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`);
+            const fallbackData = await fallbackResponse.text();
+            parseM3UUniversal(fallbackData);
             hideLoader();
             returnToDashboard();
-        }, 100);
-    } else {
-        hideLoader();
-        alert('No se pudo descargar la lista M3U. Comprueba que el enlace sea público y accesible.');
+        } catch (err) {
+            console.error(err);
+            hideLoader();
+            alert('Error al cargar la lista M3U. Comprueba que el archivo col.m3u exista en el repositorio.');
+        }
     }
 }
 
-// ANALIZADOR UNIVERSAL COMPATIBLE CON TU LISTA
+// ANALIZADOR UNIVERSAL DE CANALES Y VOD
 function parseM3UUniversal(content) {
     allChannels = [];
     const lines = content.replace(/\r\n/g, '\n').split('\n');
@@ -92,7 +78,7 @@ function parseM3UUniversal(content) {
                 let gLower = currentChannel.group.toLowerCase();
                 let uLower = currentChannel.url.toLowerCase();
 
-                const isMovie = gLower.includes('pelicula') || gLower.includes('vod') || gLower.includes('movie') || gLower.includes('cine') || gLower.includes('estrenos') || gLower.includes('comedia') || gLower.includes('animacion') || gLower.includes('animadas') || uLower.includes('.mp4') || uLower.includes('.mkv') || uLower.includes('.mov');
+                const isMovie = gLower.includes('pelicula') || gLower.includes('vod') || gLower.includes('movie') || gLower.includes('cine') || gLower.includes('estrenos') || gLower.includes('comedia') || gLower.includes('animacion') || gLower.includes('animadas') || uLower.includes('.mp4') || uLower.includes('.mkv') || uLower.includes('.avi') || uLower.includes('.mov');
                 const isSeries = gLower.includes('serie') || gLower.includes('temporada') || gLower.includes('capitulo') || uLower.includes('/series/');
 
                 if (isSeries) {
@@ -221,7 +207,7 @@ function renderMediaList(items) {
     });
 }
 
-// REPRODUCTOR MULTICODEC BLINDADO CON PROXY PARA EVITAR CORS Y MIXED CONTENT
+// REPRODUCTOR MULTICODEC BLINDADO
 function playMedia(item) {
     const video = document.getElementById('videoPlayer');
     document.getElementById('playingName').innerText = item.name;
@@ -238,7 +224,6 @@ function playMedia(item) {
 
     let mediaUrl = item.url;
 
-    // Si la app está en HTTPS y el stream es HTTP, canalizamos por proxy para evitar bloqueo del navegador
     if (mediaUrl.startsWith('http://') && window.location.protocol === 'https:') {
         mediaUrl = `https://corsproxy.io/?${encodeURIComponent(item.url)}`;
     }
