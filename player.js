@@ -57,7 +57,7 @@ async function loadPlaylistWithProgress(url) {
     }
 
     if (loaded && playlistText) {
-        showLoader('Analizando grupos y clasificando películas...');
+        showLoader('Analizando grupos y clasificando contenido...');
         setTimeout(() => {
             parseExM3UProfessional(playlistText);
             hideLoader();
@@ -69,7 +69,7 @@ async function loadPlaylistWithProgress(url) {
     }
 }
 
-// MOTOR PROFESIONAL DE LECTURA Y CORRECCIÓN DE ENLACES VOD Y CANALES
+// MOTOR PROFESIONAL DE LECTURA EXM3U
 function parseExM3UProfessional(content) {
     const lines = content.replace(/\r\n/g, '\n').split('\n');
     let currentName = '';
@@ -106,8 +106,8 @@ function parseExM3UProfessional(content) {
             let nLower = currentName.toLowerCase();
             let uLower = mediaUrl.toLowerCase();
 
-            // IDENTIFICACIÓN EXACTA: Detecta si es Película (VOD), Serie o Canal en Vivo
-            const isMovie = gLower.includes('pelicula') || gLower.includes('vod') || gLower.includes('movie') || gLower.includes('cine') || gLower.includes('estrenos') || gLower.includes('comedia') || gLower.includes('animacion') || gLower.includes('animadas') || uLower.includes('/movie/') || uLower.includes('.mp4') || uLower.includes('.mkv');
+            // Identificación estricta y limpia de películas y series
+            const isMovie = gLower.includes('pelicula') || gLower.includes('vod') || gLower.includes('movie') || gLower.includes('cine') || gLower.includes('estrenos') || gLower.includes('comedia') || gLower.includes('animacion') || gLower.includes('animadas') || uLower.includes('/movie/') || uLower.includes('.mp4') || uLower.includes('.mkv') || uLower.includes('.avi');
             const isSeries = gLower.includes('serie') || gLower.includes('temporada') || gLower.includes('capitulo') || gLower.includes('season') || uLower.includes('/series/');
 
             if (isSeries) {
@@ -229,8 +229,8 @@ function renderMediaList(items) {
     });
 }
 
-// REPRODUCTOR BLINDADO PARA CANALES HLS Y PELÍCULAS MP4/MKV
-function playMedia(item) {
+// REPRODUCTOR BLINDADO CON SOPORTE DE STREAMING Y VOD
+async function playMedia(item) {
     const video = document.getElementById('videoPlayer');
     document.getElementById('playingName').innerText = item.name;
     document.getElementById('currentChannelInfo').classList.remove('hidden');
@@ -240,16 +240,36 @@ function playMedia(item) {
         hls = null;
     }
 
+    let targetUrl = item.url;
+
+    // Si el enlace de película viene en HTTP puro y la página corre en HTTPS, aplicamos un proxy ligero para evitar bloqueo mixto
+    if (targetUrl.startsWith('http://') && window.location.protocol === 'https:') {
+        targetUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+    }
+
     if (item.url.includes('.m3u8') && Hls.isSupported()) {
         hls = new Hls();
-        hls.loadSource(item.url);
+        hls.loadSource(targetUrl);
         hls.attachMedia(video);
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
-            video.play().catch(e => console.log("Autoplay bloqueado por el navegador:", e));
+            video.play().catch(e => console.log("Reproducción HLS iniciada:", e));
+        });
+        hls.on(Hls.Events.ERROR, (event, data) => {
+            if (data.fatal) {
+                console.warn("Error crítico en HLS, intentando reproducción directa...", data);
+                video.src = item.url;
+                video.play().catch(err => console.error("Fallo total de reproducción:", err));
+            }
         });
     } else {
-        video.src = item.url;
-        video.play().catch(e => console.log("Reproducción directa iniciada:", e));
+        video.src = targetUrl;
+        try {
+            await video.play();
+        } catch (err) {
+            console.warn("Error con URL directa, reintentando con enlace original...", err);
+            video.src = item.url;
+            video.play().catch(e => alert("No se pudo reproducir este archivo de video. El formato podría no ser compatible con el navegador."));
+        }
     }
 }
 
