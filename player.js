@@ -37,10 +37,8 @@ async function loadPlaylistDirect(url) {
         if (!response.ok) throw new Error('No se pudo descargar la lista M3U');
         
         const data = await response.text();
-        parseM3UProfessional(data);
+        parseM3UUniversal(data);
         hideLoader();
-        
-        // Ir directamente al menú principal (Dashboard estilo Smarters Player)
         returnToDashboard();
     } catch (error) {
         console.error(error);
@@ -49,8 +47,8 @@ async function loadPlaylistDirect(url) {
     }
 }
 
-// MOTOR DE CLASIFICACIÓN INTELIGENTE (DETECTA PELÍCULAS, SERIES Y TV)
-function parseM3UProfessional(content) {
+// MOTOR DE ANÁLISIS UNIVERSAL PARA TODO TIPO DE CONTENIDO
+function parseM3UUniversal(content) {
     allChannels = [];
     const lines = content.replace(/\r\n/g, '\n').split('\n');
     let currentChannel = {};
@@ -71,11 +69,9 @@ function parseM3UProfessional(content) {
             if (currentChannel.name && currentChannel.url) {
                 let gLower = currentChannel.group.toLowerCase();
                 let uLower = currentChannel.url.toLowerCase();
-                let nLower = currentChannel.name.toLowerCase();
 
-                // Identificación robusta para cine, series y canales en directo
-                const isMovie = gLower.includes('pelicula') || gLower.includes('vod') || gLower.includes('movie') || gLower.includes('cine') || gLower.includes('estrenos') || gLower.includes('comedia') || gLower.includes('animacion') || gLower.includes('animadas') || gLower.includes('infantiles') || uLower.includes('/movie/') || uLower.includes('.mp4') || uLower.includes('.mkv') || nLower.includes('200') || nLower.includes('199');
-                const isSeries = gLower.includes('serie') || gLower.includes('temporada') || gLower.includes('capitulo') || gLower.includes('season') || uLower.includes('/series/');
+                const isMovie = gLower.includes('pelicula') || gLower.includes('vod') || gLower.includes('movie') || gLower.includes('cine') || gLower.includes('estrenos') || gLower.includes('comedia') || gLower.includes('animacion') || gLower.includes('animadas') || uLower.includes('.mp4') || uLower.includes('.mkv') || uLower.includes('.avi') || uLower.includes('.mov');
+                const isSeries = gLower.includes('serie') || gLower.includes('temporada') || gLower.includes('capitulo') || uLower.includes('/series/');
 
                 if (isSeries) {
                     currentChannel.type = 'series';
@@ -203,7 +199,7 @@ function renderMediaList(items) {
     });
 }
 
-// REPRODUCTOR UNIVERSAL BLINDADO
+// REPRODUCTOR MULTICODEC BLINDADO (SOPORTE HLS, MP4, MKV, TS Y PROXY AUTOMÁTICO)
 function playMedia(item) {
     const video = document.getElementById('videoPlayer');
     document.getElementById('playingName').innerText = item.name;
@@ -218,20 +214,52 @@ function playMedia(item) {
     video.removeAttribute('src');
     video.load();
 
-    if (Hls.isSupported() && item.url.includes('.m3u8')) {
-        hls = new Hls();
-        hls.loadSource(item.url);
+    let mediaUrl = item.url;
+
+    // Si la página está en HTTPS y el enlace es HTTP, aplicamos proxy transparente para evitar bloqueos de seguridad
+    if (mediaUrl.startsWith('http://') && window.location.protocol === 'https:') {
+        mediaUrl = `https://corsproxy.io/?${encodeURIComponent(item.url)}`;
+    }
+
+    // Si es un stream HLS (.m3u8)
+    if (item.url.includes('.m3u8') && Hls.isSupported()) {
+        hls = new Hls({
+            xhrSetup: function (xhr, url) {
+                xhr.withCredentials = false;
+            }
+        });
+        hls.loadSource(mediaUrl);
         hls.attachMedia(video);
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
-            video.play().catch(e => console.log("Play HLS error:", e));
+            video.play().catch(e => console.log("Reproducción HLS iniciada:", e));
+        });
+        hls.on(Hls.Events.ERROR, function (event, data) {
+            if (data.fatal) {
+                console.warn("Error fatal HLS, intentando reproducción directa...", data);
+                hls.destroy();
+                hls = null;
+                fallbackDirectPlay(item.url, video);
+            }
         });
     } else {
-        video.src = item.url;
-        video.load();
-        video.play().catch(e => {
-            console.warn("Reproducción directa:", e);
-        });
+        // Para MP4, MKV, AVI, TS y otros contenedores multimedia
+        fallbackDirectPlay(mediaUrl, video, item.url);
     }
+}
+
+function fallbackDirectPlay(urlToTry, videoElement, originalUrl = null) {
+    videoElement.src = urlToTry;
+    videoElement.load();
+    videoElement.play().catch(err => {
+        console.warn("Fallo con URL procesada, probando enlace limpio original...", err);
+        if (originalUrl && urlToTry !== originalUrl) {
+            videoElement.src = originalUrl;
+            videoElement.load();
+            videoElement.play().catch(e => {
+                console.error("El navegador no soporta los códecs de este archivo multimedia específico:", e);
+            });
+        }
+    });
 }
 
 function skipTime(seconds) {
