@@ -194,7 +194,6 @@ function renderMediaList(items) {
     });
 }
 
-// REPRODUCTOR MULTICODEC CON CONTROLES MANUALES
 function playMedia(item) {
     const video = document.getElementById('videoPlayer');
     document.getElementById('playingName').innerText = item.name;
@@ -275,9 +274,3 @@ function stopMedia() {
     }
     document.getElementById('currentChannelInfo').classList.add('hidden');
 }
-
-function showLoader(text) {
-    console.log(text);
-}
-
-function hideLoader() {}
