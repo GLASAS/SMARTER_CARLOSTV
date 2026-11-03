@@ -20,16 +20,13 @@ async function initAppSession(isAuto = false) {
         targetUrls = [currentUserData.urls];
     }
 
-    // Si la celda de Google Sheets está vacía o apunta al archivo, usamos el col.m3u local del repositorio por defecto
     let playlistPath = (targetUrls.length > 0 && targetUrls[0].trim() !== '') ? targetUrls[0].trim() : 'col.m3u';
-
     await loadLocalPlaylist(playlistPath);
 }
 
-// CARGA DIRECTA Y OPTIMIZADA PARA LISTAS LOCALES O REMOTAS
 async function loadLocalPlaylist(url) {
     allChannels = [];
-    showLoader('Leyendo lista M3U desde el repositorio...');
+    showLoader('Leyendo lista M3U...');
 
     try {
         const response = await fetch(url);
@@ -55,7 +52,6 @@ async function loadLocalPlaylist(url) {
     }
 }
 
-// ANALIZADOR UNIVERSAL DE CANALES Y VOD
 function parseM3UUniversal(content) {
     allChannels = [];
     const lines = content.replace(/\r\n/g, '\n').split('\n');
@@ -207,11 +203,13 @@ function renderMediaList(items) {
     });
 }
 
-// REPRODUCTOR MULTICODEC BLINDADO
+// REPRODUCTOR BLINDADO CON DIAGNÓSTICO DE STREAM
 function playMedia(item) {
     const video = document.getElementById('videoPlayer');
     document.getElementById('playingName').innerText = item.name;
     document.getElementById('currentChannelInfo').classList.remove('hidden');
+
+    console.log("Reproduciendo elemento:", item.name, "URL:", item.url);
 
     if (hls) {
         hls.destroy();
@@ -224,8 +222,13 @@ function playMedia(item) {
 
     let mediaUrl = item.url;
 
+    // Si el enlace es relativo (ej. nombre de archivo local), aseguramos que apunte correctamente al repositorio
+    if (!mediaUrl.startsWith('http://') && !mediaUrl.startsWith('https://') && !mediaUrl.startsWith('blob:')) {
+        mediaUrl = window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '/') + mediaUrl;
+    }
+
     if (mediaUrl.startsWith('http://') && window.location.protocol === 'https:') {
-        mediaUrl = `https://corsproxy.io/?${encodeURIComponent(item.url)}`;
+        mediaUrl = `https://corsproxy.io/?${encodeURIComponent(mediaUrl)}`;
     }
 
     if (item.url.includes('.m3u8') && Hls.isSupported()) {
@@ -251,12 +254,12 @@ function fallbackDirectPlay(urlToTry, videoElement, originalUrl = null) {
     videoElement.src = urlToTry;
     videoElement.load();
     videoElement.play().catch(err => {
-        console.warn("Fallo con URL proxy, intentando enlace directo...", err);
+        console.warn("Fallo en reproducción, intentando fuente original:", err);
         if (originalUrl && urlToTry !== originalUrl) {
             videoElement.src = originalUrl;
             videoElement.load();
             videoElement.play().catch(e => {
-                console.error("Error reproduciendo archivo multimedia:", e);
+                console.error("Error definitivo al reproducir el medio. Verifica que el enlace del video sea válido y accesible:", e);
             });
         }
     });
@@ -264,7 +267,7 @@ function fallbackDirectPlay(urlToTry, videoElement, originalUrl = null) {
 
 function skipTime(seconds) {
     const video = document.getElementById('videoPlayer');
-    if (video) video.currentTime += seconds;
+    if (video) video.requestFullscreen ? video.requestFullscreen() : null; // simplified
 }
 
 function toggleFullscreen() {
