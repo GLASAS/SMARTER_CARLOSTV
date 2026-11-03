@@ -39,7 +39,9 @@ async function loadPlaylistDirect(url) {
         const data = await response.text();
         parseM3UUniversal(data);
         hideLoader();
-        openSection('live');
+        
+        // MOSTRAR DIRECTAMENTE EL MENÚ PRINCIPAL (DASHBOARD) TRAS EL LOGIN
+        returnToDashboard();
     } catch (error) {
         console.error(error);
         hideLoader();
@@ -102,6 +104,7 @@ function openSection(section) {
 }
 
 function returnToDashboard() {
+    // OCULTAR CONTENIDO Y MOSTRAR EL MENÚ PRINCIPAL (DASHBOARD)
     document.getElementById('viewContent').classList.add('hidden');
     document.getElementById('viewDashboard').classList.remove('hidden');
     document.getElementById('btnHome').classList.add('hidden');
@@ -195,26 +198,22 @@ function renderMediaList(items) {
     });
 }
 
-// REPRODUCTOR BLINDADO Y CORREGIDO PARA EVITAR BLOQUEOS DE STREAM
 function playMedia(item) {
     const video = document.getElementById('videoPlayer');
     document.getElementById('playingName').innerText = item.name;
     document.getElementById('currentChannelInfo').classList.remove('hidden');
 
-    // Limpiar instancia anterior de HLS obligatoriamente
     if (hls) {
         hls.destroy();
         hls = null;
     }
 
-    // Detener reproductor actual y limpiar fuentes
     video.pause();
     video.removeAttribute('src');
     video.load();
 
     let playUrl = item.url;
 
-    // Si es un enlace HTTP en una página HTTPS, usamos un proxy de streaming para evitar bloqueo de seguridad mixto del navegador
     if (playUrl.startsWith('http://') && window.location.protocol === 'https:') {
         playUrl = `https://corsproxy.io/?${encodeURIComponent(item.url)}`;
     }
@@ -227,7 +226,6 @@ function playMedia(item) {
             video.play().catch(e => console.log("Play HLS error:", e));
         });
     } else {
-        // Carga directa para películas y otros formatos
         video.src = playUrl;
         video.load();
         video.play().catch(err => {
