@@ -11,40 +11,39 @@ export function playItem(item) {
 
   const url = item.url;
 
-  // Destruir instancia anterior de HLS si existe
   if (hlsInstance) {
     hlsInstance.destroy();
     hlsInstance = null;
   }
 
-  // Comprobar si es un enlace HLS (.m3u8) o si Hls.js es necesario
+  video.removeAttribute("src");
+  video.load();
+
   if (url.includes(".m3u8") && Hls.isSupported()) {
     hlsInstance = new Hls();
     hlsInstance.loadSource(url);
     hlsInstance.attachMedia(video);
     hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
-      video.play().catch(() => {});
+      video.play().catch(handlePlayError);
     });
     hlsInstance.on(Hls.Events.ERROR, (event, data) => {
       if (data.fatal) {
-        showError("No se pudo reproducir este contenido en directo.");
+        showError("Error de reproducción HLS. Verifique el enlace o la red.");
       }
     });
   } else if (video.canPlayType("application/vnd.apple.mpegurl") && url.includes(".m3u8")) {
-    // Soporte nativo para Safari / iOS
     video.src = url;
-    video.addEventListener("loadedmetadata", () => {
-      video.play().catch(() => {});
-    }, { once: true });
+    video.play().catch(handlePlayError);
   } else {
-    // Para archivos MP4 / VOD directos
     video.src = url;
     video.load();
-    video.play().catch((err) => {
-      console.warn("Reproducción automática bloqueada o formato no compatible:", err);
-      showError("Haz clic en el botón de reproducir del video para iniciar.");
-    });
+    video.play().catch(handlePlayError);
   }
+}
+
+function handlePlayError(err) {
+  console.warn("Reproducción automática bloqueada o error de códec:", err);
+  showError("Haz clic en el botón de reproducción del video o verifica si el formato es compatible.");
 }
 
 export function stopPlayer() {
@@ -53,7 +52,7 @@ export function stopPlayer() {
     hlsInstance = null;
   }
   video.pause();
-  video.src = "";
+  video.removeAttribute("src");
   video.load();
 }
 
@@ -61,3 +60,8 @@ function showError(msg) {
   errorBox.textContent = msg;
   errorBox.classList.remove("hidden");
 }
+
+video.addEventListener("error", (e) => {
+  console.error("Error en el elemento de video:", video.error);
+  showError("El navegador no pudo reproducir este formato de video.");
+});
